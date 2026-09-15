@@ -14,7 +14,7 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 
 ## Daftar Fitur Inti
 > *Target penyelesaian dalam 12 pertemuan.*
-1. **Autentikasi Pengguna:** Sistem *Login* dan *Register* agar setiap pengguna memiliki akun dan datanya masing-masing.
+1. Autentikasi Pengguna: Fitur pendaftaran dan login akun pribadi sederhana.
 2. **Manajemen Kebiasaan (CRUD) & Sinkronisasi Cloud:** Fitur untuk menambah, membaca, mengedit, dan menghapus target kebiasaan harian yang langsung tersinkronisasi dengan *API Backend*.
 3. **Sistem *Daily Check-in* & Kalkulasi *Streak*:** Tombol untuk menandai kebiasaan yang sudah diselesaikan pada hari ini. Logika *backend* akan menghitung jumlah *streak* dan otomatis mereset ke 0 jika terlewat satu hari.
 4. **Android *Background Push Notifications*:** Sistem pengingat harian yang dikirimkan oleh sistem (OS Android) meskipun aplikasi sedang dalam keadaan tertutup (*background*).
