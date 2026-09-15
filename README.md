@@ -1,33 +1,33 @@
-# Rutinku - Mobile Habit Tracker
+# Rutinku - Mobile Habit Tracker App 🚀
 
 ## Deskripsi Masalah
-Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasaan baru (seperti minum air 2 liter sehari, olahraga ringan, atau membaca buku). Kegagalan ini sering terjadi karena mereka tidak memiliki alat pencatat progres yang praktis dan tidak adanya dorongan visual untuk memotivasi mereka secara harian. Penggunaan catatan manual seringkali merepotkan dan mudah dilupakan.
+Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasaan baru. Kegagalan ini sering terjadi karena mereka tidak memiliki alat pencatat progres yang praktis dan tidak adanya dorongan visual (seperti *streak*) untuk memotivasi mereka secara harian. Selain itu, pengguna sering kali lupa membuka aplikasi jika tidak diingatkan, dan pencatatan yang hanya tersimpan di memori internal *smartphone* rawan hilang jika berganti perangkat.
 
 ## Profil Target Pengguna
 - **Individu dengan Mobilitas Tinggi:** Pelajar, mahasiswa, dan pekerja yang selalu membawa *smartphone* setiap hari.
-- **Pemula dalam Produktivitas:** Siapa saja yang ingin membangun rutinitas positif baru dan membutuhkan antarmuka yang sangat sederhana tanpa pengaturan yang rumit.
+- **Pemula dalam Produktivitas:** Siapa saja yang ingin membangun rutinitas positif baru dan membutuhkan aplikasi pengingat yang otomatis dan datanya aman tersimpan secara *online*.
 
 ## Manfaat Aplikasi
 - **Meningkatkan Konsistensi:** Memberikan motivasi visual berupa perhitungan *streak* (hari berturut-turut) yang mendorong pengguna agar tidak memutus rantai rutinitas.
-- **Aksesibilitas Cepat:** Memudahkan pengguna untuk mencatat (*check-in*) kebiasaan harian mereka secara instan langsung dari genggaman ponsel sesaat setelah aktivitas selesai dilakukan.
-- **Evaluasi Diri:** Membantu pengguna memantau pola kedisiplinan mereka melalui ringkasan progres mingguan.
+- **Pengingat Aktif:** Mencegah pengguna lupa melakukan kebiasaan berkat adanya notifikasi *push* otomatis yang muncul langsung di layar Android mereka.
+- **Data Aman & Fleksibel:** Memudahkan pengguna mengakses riwayat kedisiplinan mereka dari perangkat mana saja karena data diamankan melalui sistem *login* dan tersinkronisasi di *cloud*.
 
 ## Daftar Fitur Inti
 > *Target penyelesaian dalam 12 pertemuan.*
-1. **Manajemen Kebiasaan (CRUD):** Fitur antarmuka untuk menambah, membaca, mengedit, dan menghapus target kebiasaan harian.
-2. **Sistem *Daily Check-in*:** Tombol interaktif (centang) di layar utama untuk menandai kebiasaan yang sudah diselesaikan pada hari ini.
-3. **Kalkulasi *Streak* Otomatis:** Sistem logika yang menghitung berapa hari berturut-turut sebuah kebiasaan berhasil dilakukan. Jika terlewat satu hari (pergantian tanggal tanpa *check-in*), angka *streak* akan otomatis di-reset menjadi 0.
-4. **Ringkasan Progres Mingguan:** Halaman statistik sederhana yang menunjukkan grafik atau deretan ikon riwayat *check-in* pengguna selama 7 hari terakhir.
-5. **Penyimpanan Data Lokal:** Menggunakan `AsyncStorage` (atau SQLite lokal) agar data kebiasaan persisten dan aplikasi dapat langsung digunakan secara *offline*.
+1. **Autentikasi Pengguna:** Sistem *Login* dan *Register* agar setiap pengguna memiliki akun dan datanya masing-masing.
+2. **Manajemen Kebiasaan (CRUD) & Sinkronisasi Cloud:** Fitur untuk menambah, membaca, mengedit, dan menghapus target kebiasaan harian yang langsung tersinkronisasi dengan *API Backend*.
+3. **Sistem *Daily Check-in* & Kalkulasi *Streak*:** Tombol untuk menandai kebiasaan yang sudah diselesaikan pada hari ini. Logika *backend* akan menghitung jumlah *streak* dan otomatis mereset ke 0 jika terlewat satu hari.
+4. **Android *Background Push Notifications*:** Sistem pengingat harian yang dikirimkan oleh sistem (OS Android) meskipun aplikasi sedang dalam keadaan tertutup (*background*).
+5. **Ringkasan Progres Mingguan:** Halaman statistik sederhana yang menunjukkan riwayat *check-in* pengguna selama 7 hari terakhir.
 
 ## Fitur yang Tidak Dikerjakan
-1. Sistem Autentikasi Pengguna (*Login/Register*).
-2. Sinkronisasi *Cloud Database* dan pembuatan API *Backend* (aplikasi berjalan murni *offline*).
-3. Notifikasi *Push* berbasis sistem operasi (Android/iOS) yang berjalan di *background*.
-4. Fitur jejaring sosial (seperti berbagi progres ke media sosial atau papan peringkat antar pengguna).
+1. Kompatibilitas dan pengaturan *Push Notification* khusus untuk sistem operasi iOS (Fokus pengembangan murni untuk Android terlebih dahulu).
+2. Integrasi dengan perangkat keras (seperti *Smartwatch* atau *Fitness Tracker*).
+3. Fitur jejaring sosial (seperti *leaderboard* antar pengguna atau berbagi progres ke media sosial).
+4. Mode murni *Offline* (karena aplikasi ini sekarang membutuhkan koneksi internet untuk sinkronisasi API dan validasi *Login*).
 
 ## Kriteria Aplikasi Dinyatakan Berhasil
-1. **Dapat Dijalankan (Runnable):** Aplikasi dapat dijalankan di *emulator* atau ponsel fisik melalui *Expo Go*, dan dapat di-*build* menjadi file instalasi (misal: APK).
-2. **Penyimpanan Lokal Berfungsi:** Pengguna sukses melakukan operasi CRUD pada daftar kebiasaan, dan data tersebut tidak hilang ketika aplikasi ditutup dan dibuka kembali.
-3. **Akurasi Logika Waktu:** Aplikasi berhasil membaca tanggal di sistem ponsel. Ketika pengguna melakukan *check-in* hari ini, *streak* bertambah +1. Jika sistem mendeteksi hari sudah berganti dan tidak ada *check-in* di hari sebelumnya, *streak* kembali menjadi 0 secara otomatis.
-4. **Alur Pengguna Lancar:** Pengguna dapat berpindah dari layar *Dashboard* ke layar *Statistik* tanpa ada *error* (navigasi berjalan baik).
+1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru, melakukan *login*, dan sistem berhasil menyimpan sesi (token) pengguna dengan benar.
+2. **Sinkronisasi Database Sukses:** Operasi penambahan dan *check-in* kebiasaan berhasil dikirim ke *backend* dan data tidak hilang ketika aplikasi dihapus lalu diinstal ulang di perangkat lain.
+3. **Notifikasi *Background* Berfungsi:** *Push notification* sukses muncul pada jam yang telah ditentukan di perangkat Android, meskipun aplikasi `Rutinku` sedang tidak dibuka oleh pengguna.
+4. **Akurasi Logika Waktu:** Ketika pengguna melakukan *check-in* hari ini, angka *streak* bertambah +1. Jika hari berganti tanpa *check-in*, sistem berhasil mereset nilai *streak* menjadi 0.
