@@ -27,7 +27,7 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 4. Mode murni *Offline* (karena aplikasi ini sekarang membutuhkan koneksi internet untuk sinkronisasi API dan validasi *Login*).
 
 ## Kriteria Aplikasi Dinyatakan Berhasil
-1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru, melakukan *login*, dan sistem berhasil menyimpan sesi (token) pengguna dengan benar.
+1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru, melakukan login, dan sistem berhasil memberikan akses (token/session) hanya untuk melihat data kebiasaan miliknya sendiri.
 2. **Sinkronisasi Database Sukses:** Operasi penambahan dan *check-in* kebiasaan berhasil dikirim ke *backend* dan data tidak hilang ketika aplikasi dihapus lalu diinstal ulang di perangkat lain.
-3. **Notifikasi *Background* Berfungsi:** *Push notification* sukses muncul pada jam yang telah ditentukan di perangkat Android, meskipun aplikasi `Rutinku` sedang tidak dibuka oleh pengguna.
-4. **Akurasi Logika Waktu:** Ketika pengguna melakukan *check-in* hari ini, angka *streak* bertambah +1. Jika hari berganti tanpa *check-in*, sistem berhasil mereset nilai *streak* menjadi 0.
+3. **Notifikasi *Background* Berfungsi:** *Push notification* sukses muncul pada jam yang telah ditentukan di perangkat Android, meskipun aplikasi Rutinku sedang tidak dibuka oleh pengguna.
+4. **Akurasi Logika Waktu:** Ketika pengguna melakukan check-in hari ini, angka streak bertambah +1. Jika hari berganti tanpa check-in, sistem berhasil mereset nilai streak menjadi 0.
