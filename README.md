@@ -1,7 +1,7 @@
 # Rutinku - Mobile Habit Tracker App 🚀
 
 ## Deskripsi Masalah
-Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasaan baru[cite: 2]. Kegagalan ini sering terjadi karena mereka tidak memiliki alat pencatat progres yang praktis dan tidak adanya dorongan visual (seperti *streak*) untuk memotivasi mereka secara harian[cite: 2]. Selain itu, pengguna sering kali lupa membuka aplikasi jika tidak diingatkan, dan pencatatan yang hanya tersimpan di memori internal *smartphone* rawan hilang jika berganti perangkat[cite: 2].
+Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasaan baru. Kegagalan ini sering terjadi karena mereka tidak memiliki alat pencatat progres yang praktis dan tidak adanya dorongan visual (seperti *streak*) untuk memotivasi mereka secara harian[cite: 2]. Selain itu, pengguna sering kali lupa membuka aplikasi jika tidak diingatkan, dan pencatatan yang hanya tersimpan di memori internal *smartphone* rawan hilang jika berganti perangkat[cite: 2].
 
 ## Profil Target Pengguna
 - **Individu dengan Mobilitas Tinggi:** Pelajar, mahasiswa, dan pekerja yang selalu membawa *smartphone* setiap hari[cite: 2].
@@ -21,7 +21,7 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 5. **Ringkasan Progres Mingguan:** Halaman statistik sederhana yang menarik histori 7 hari ke belakang dari *database* untuk menampilkan riwayat *check-in* pengguna[cite: 2].
 
 ## Fitur yang Tidak Dikerjakan
-1. **Pembuatan API Backend dari Nol:** Aplikasi tidak menggunakan arsitektur *backend* tradisional (seperti Node.js/Express) atau server notifikasi (*Remote Push Notifications*), melainkan memanfaatkan layanan BaaS (seperti Firebase/Supabase) dan *Local Notifications* untuk mempercepat pengembangan.
+1. **Pembuatan API Backend dari Nol:** Aplikasi tidak menggunakan arsitektur *backend* tradisional (seperti Node.js/Express) atau server notifikasi (*Remote Push Notifications*), melainkan memanfaatkan layanan BaaS (seperti Firebase/Supabase) dan *Local Notifications* untuk mempercepat pengembangan[cite: 2].
 2. Kompatibilitas dan pengaturan *Push Notification* khusus untuk sistem operasi iOS (Fokus pengembangan murni untuk Android terlebih dahulu)[cite: 2].
 3. Integrasi dengan perangkat keras (seperti *Smartwatch* atau *Fitness Tracker*)[cite: 2].
 4. Fitur jejaring sosial (seperti *leaderboard* antar pengguna atau berbagi progres ke media sosial)[cite: 2].
