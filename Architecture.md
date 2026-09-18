@@ -80,3 +80,8 @@ rutinku-mobile/
 ├── .env                    # Variabel environment (API Keys BaaS) - Tidak di-commit
 ├── package.json            # Daftar dependensi NPM
 └── tsconfig.json           # Konfigurasi TypeScript
+
+5. Keamanan dan Akses Data
+Aturan Keamanan Database (Security Rules): Database harus dikonfigurasi agar pengguna hanya dapat membaca, menulis, dan mengedit dokumen yang memiliki userId yang cocok dengan UID autentikasi mereka sendiri.
+
+Manajemen Kredensial: Kunci rahasia (API Keys) untuk Firebase/Supabase disimpan dengan aman di file .env dan dimuat menggunakan pustaka pengelola variabel environment di React Native.
