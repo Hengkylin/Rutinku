@@ -38,31 +38,41 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 
 ## 4. Struktur Direktori Proyek
 
-Proyek ini mengadopsi standar arsitektur modular Flutter:
+Proyek ini mengadopsi standar arsitektur modular Flutter dengan pemisahan tanggung jawab (*Separation of Concerns*) berbasis Riverpod:
 
 ```text
 rutinku_flutter/
 │
 ├── lib/
-│   ├── main.dart                  # Entri utama aplikasi
-│   ├── app.dart                   # Root widget dan tema
+│   ├── main.dart                  # Entri utama aplikasi & ProviderScope
+│   ├── app.dart                   # Root widget dan konfigurasi tema
 │   │
 │   ├── routes/                    # Manajemen navigasi
 │   │   └── app_routes.dart        
 │   │
-│   ├── screens/                   # Halaman utama (UI Level)
+│   ├── screens/                   # Halaman antarmuka utama (UI/View)
 │   │   ├── login_screen.dart
-│   │   ├── dashboard_screen.dart
+│   │   ├── dashboard_screen.dart  # UI Reaktif membaca state
 │   │   └── profile_screen.dart
 │   │
 │   ├── widgets/                   # Komponen UI yang reusable
 │   │   ├── primary_button.dart
 │   │   └── app_text_field.dart
 │   │
-│   ├── models/                    # Struktur data (Class)
-│   │   └── user_model.dart
+│   ├── models/                    # Struktur cetak biru data
+│   │   ├── user_model.dart
+│   │   └── habit_model.dart
 │   │
-│   └── services/                  # Logika eksternal (API / Firebase)
+│   ├── repositories/              # Lapisan akses data (API/Database)
+│   │   └── habit_repository.dart
+│   │
+│   ├── notifiers/                 # Logika bisnis & State Management
+│   │   └── habit_notifier.dart
+│   │
+│   └── services/                  # Logika eksternal (Auth/Notifikasi)
 │       └── auth_service.dart
 │
-└── pubspec.yaml                   # Daftar dependensi package Flutter
+├── test/                          # Pengujian otomatis (Unit/Widget Test)
+│   └── widget_test.dart
+│
+└── pubspec.yaml                   # Konfigurasi dependensi package Flutter
