@@ -15,15 +15,25 @@ void main() {
     );
 
     // --- UJI KONDISI 1: Initial Loading ---
-    // Saat pertama kali dirender, CircularProgressIndicator harus muncul
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    // Saat pertama kali dirender, CircularProgressIndicator loading harus muncul
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is CircularProgressIndicator && w.value == null,
+      ),
+      findsOneWidget,
+    );
 
     // Tunggu mock delay 2 detik selesai
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
     // --- UJI KONDISI 2: Empty State ---
     // Indikator loading hilang, diganti dengan teks empty state
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is CircularProgressIndicator && w.value == null,
+      ),
+      findsNothing,
+    );
     expect(find.text('Belum ada rutinitas.\nYuk, buat kebiasaan pertamamu!'), findsOneWidget);
 
     // --- UJI KONDISI 5: Validasi Form ---
