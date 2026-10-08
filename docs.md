@@ -55,7 +55,7 @@ Saat demo, ambil screenshot atau video singkat (10–20 detik) dengan urutan:
 4. Tunjukkan kartu data rutinitas yang berhasil dimuat di daftar.
 5. (Opsional) Tekan *checkbox* pada kartu untuk menunjukkan perubahan UI *Gamifikasi* (coret teks dan poin bertambah).
 
-Simpan bukti sebagai `docs/evidence/p4-habit-flow.png` atau `docs/evidence/p4-habit-flow.mp4` sebelum pengumpulan. Error state telah diuji terpisah melalui widget test.
+Link Video Dokumentasi: https://drive.google.com/file/d/19dYYtVZFqdKiJLgcz7iDsIKp91DmGR7x/view?usp=drive_link
 
 ---
 
