@@ -29,11 +29,19 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     state = await AsyncValue.guard(() => _repository.fetchHabits());
   }
 
-  Future<void> addHabit(String title) async {
+  Future<void> addHabit(
+    String title, {
+    String? category,
+    String? reminderTime,
+  }) async {
     final previousState = state;
     state = const AsyncValue.loading();
     try {
-      await _repository.addHabit(title);
+      await _repository.addHabit(
+        title,
+        category: category,
+        reminderTime: reminderTime,
+      );
       state = await AsyncValue.guard(() => _repository.fetchHabits());
     } catch (e) {
       state = previousState;

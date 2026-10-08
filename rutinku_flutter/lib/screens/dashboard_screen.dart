@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/habit_notifier.dart';
+import '../widgets/add_habit_bottom_sheet.dart';
 import '../widgets/edit_habit_bottom_sheet.dart';
 import '../widgets/habit_card.dart';
+import 'template_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -419,17 +421,52 @@ class DashboardScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFFD9F99D),
         foregroundColor: Colors.black87,
-        onPressed: () => _showHabitDialog(context),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const TemplateScreen(),
+            ),
+          );
+
+          if (!context.mounted) return;
+
+          if (result is Map) {
+            _showAddHabitBottomSheet(
+              context,
+              initialTitle: result['title'] as String?,
+              initialCategory: result['category'] as String?,
+            );
+          } else if (result == 'custom') {
+            _showAddHabitBottomSheet(context);
+          }
+        },
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _showHabitDialog(BuildContext context, {HabitModel? habitToEdit}) {
-    showDialog(
+  void _showAddHabitBottomSheet(
+    BuildContext context, {
+    String? initialTitle,
+    String? initialCategory,
+  }) {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => _HabitForm(habitToEdit: habitToEdit),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: AddHabitBottomSheet(
+          initialTitle: initialTitle,
+          initialCategory: initialCategory,
+        ),
+      ),
     );
   }
 
@@ -464,107 +501,3 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// Widget Form yang sekarang mendukung mode Tambah & Edit
-class _HabitForm extends ConsumerStatefulWidget {
-  final HabitModel? habitToEdit;
-  const _HabitForm({this.habitToEdit});
-
-  @override
-  ConsumerState<_HabitForm> createState() => _HabitFormState();
-}
-
-class _HabitFormState extends ConsumerState<_HabitForm> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _titleController;
-  bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Jika ada data habitToEdit, isi nilai form-nya (Mode Edit)
-    _titleController = TextEditingController(
-      text: widget.habitToEdit?.title ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      if (widget.habitToEdit == null) {
-        await ref
-            .read(habitNotifierProvider.notifier)
-            .addHabit(_titleController.text);
-      } else {
-        await ref.read(habitNotifierProvider.notifier).updateHabit(
-              widget.habitToEdit!.id,
-              _titleController.text,
-              widget.habitToEdit!.category ?? '',
-              widget.habitToEdit!.reminderTime ?? '',
-            );
-      }
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEditMode = widget.habitToEdit != null;
-
-    return AlertDialog(
-      title: Text(isEditMode ? 'Edit Kebiasaan' : 'Tambah Kebiasaan'),
-      content: Form(
-        key: _formKey,
-        child: TextFormField(
-          controller: _titleController,
-          enabled: !_isSubmitting,
-          decoration: const InputDecoration(
-            labelText: 'Nama Kebiasaan',
-            hintText: 'Contoh: Minum Air Putih',
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Nama kebiasaan tidak boleh kosong';
-            }
-            if (value.trim().length < 3) {
-              return 'Minimal 3 karakter';
-            }
-            return null;
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Batal'),
-        ),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Simpan'),
-        ),
-      ],
-    );
-  }
-}

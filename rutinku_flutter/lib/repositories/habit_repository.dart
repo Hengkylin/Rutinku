@@ -11,11 +11,17 @@ class HabitRepository {
     return _mockDatabase;
   }
 
-  Future<void> addHabit(String title) async {
+  Future<void> addHabit(
+    String title, {
+    String? category,
+    String? reminderTime,
+  }) async {
     await Future.delayed(const Duration(seconds: 1));
     final newHabit = HabitModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
+      category: category,
+      reminderTime: reminderTime,
     );
     _mockDatabase.add(newHabit);
   }

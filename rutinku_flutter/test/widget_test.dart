@@ -37,9 +37,17 @@ void main() {
     expect(find.text('Belum ada rutinitas.\nYuk, buat kebiasaan pertamamu!'), findsOneWidget);
 
     // --- UJI KONDISI 5: Validasi Form ---
-    // Buka bottom sheet / dialog form
+    // Buka form tambah kebiasaan via template screen ('Buat Kebiasaan Sendiri')
     await tester.tap(find.byType(FloatingActionButton));
-    await tester.pumpAndSettle(); // Tunggu animasi dialog selesai
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Buat Kebiasaan Sendiri'),
+      500.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Buat Kebiasaan Sendiri'));
+    await tester.pumpAndSettle(); // Tunggu bottom sheet muncul
 
     // Tekan tombol simpan saat teks kosong
     await tester.tap(find.text('Simpan'));
