@@ -1,10 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rutinku_flutter/models/habit_model.dart';
 import 'package:rutinku_flutter/repositories/habit_repository.dart';
 import 'package:rutinku_flutter/notifiers/habit_notifier.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('HabitModel & HabitRepository Tests', () {
     test('HabitModel supports isCompletedToday and copyWith', () {
       final habit = HabitModel(id: '1', title: 'Belajar Flutter');
@@ -31,27 +38,32 @@ void main() {
 
       // Toggle check-in to true
       await repo.toggleCheckIn(id);
-      expect(habits.first.isCompletedToday, true);
+      var currentHabits = await repo.fetchHabits();
+      expect(currentHabits.first.isCompletedToday, true);
 
       // Update habit preserves isCompletedToday
       await repo.updateHabit(id, 'Minum 2L Air', 'Kesehatan', '08:00');
-      expect(habits.first.title, 'Minum 2L Air');
-      expect(habits.first.category, 'Kesehatan');
-      expect(habits.first.reminderTime, '08:00');
-      expect(habits.first.isCompletedToday, true);
+      currentHabits = await repo.fetchHabits();
+      expect(currentHabits.first.title, 'Minum 2L Air');
+      expect(currentHabits.first.category, 'Kesehatan');
+      expect(currentHabits.first.reminderTime, '08:00');
+      expect(currentHabits.first.isCompletedToday, true);
 
       // Toggle check-in back to false
       await repo.toggleCheckIn(id);
-      expect(habits.first.isCompletedToday, false);
+      currentHabits = await repo.fetchHabits();
+      expect(currentHabits.first.isCompletedToday, false);
 
       // Delete habit
       await repo.deleteHabit(id);
-      expect(habits.isEmpty, true);
+      currentHabits = await repo.fetchHabits();
+      expect(currentHabits.isEmpty, true);
 
       // Restore habit
       await repo.restoreHabit(habit);
-      expect(habits.length, 1);
-      expect(habits.first.id, id);
+      currentHabits = await repo.fetchHabits();
+      expect(currentHabits.length, 1);
+      expect(currentHabits.first.id, id);
     });
   });
 

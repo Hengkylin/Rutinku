@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rutinku_flutter/screens/dashboard_screen.dart'; // Sesuaikan path jika error
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:rutinku_flutter/screens/dashboard_screen.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('Dashboard UI States & Form Validation Test', (WidgetTester tester) async {
     // 1. Bungkus screen dengan ProviderScope dan MaterialApp
     await tester.pumpWidget(

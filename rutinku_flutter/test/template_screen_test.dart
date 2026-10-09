@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rutinku_flutter/screens/dashboard_screen.dart';
 import 'package:rutinku_flutter/screens/template_screen.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('TemplateScreen Tests', () {
     testWidgets('renders categories, items, and custom option correctly',
         (tester) async {

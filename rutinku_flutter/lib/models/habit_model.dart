@@ -32,4 +32,26 @@ class HabitModel {
       currentStreak: currentStreak ?? this.currentStreak,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'isCompletedToday': isCompletedToday,
+      'category': category,
+      'reminderTime': reminderTime,
+      'currentStreak': currentStreak,
+    };
+  }
+
+  factory HabitModel.fromMap(Map<String, dynamic> map) {
+    return HabitModel(
+      id: map['id'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      isCompletedToday: map['isCompletedToday'] as bool? ?? false,
+      category: map['category'] as String?,
+      reminderTime: map['reminderTime'] as String?,
+      currentStreak: (map['currentStreak'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
