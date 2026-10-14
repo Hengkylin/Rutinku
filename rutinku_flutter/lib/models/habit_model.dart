@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class HabitModel {
   final String id;
   final String title;
@@ -54,4 +56,9 @@ class HabitModel {
       currentStreak: (map['currentStreak'] as num?)?.toInt() ?? 0,
     );
   }
+
+  String toJson() => json.encode(toMap());
+
+  factory HabitModel.fromJson(String source) =>
+      HabitModel.fromMap(json.decode(source) as Map<String, dynamic>);
 }

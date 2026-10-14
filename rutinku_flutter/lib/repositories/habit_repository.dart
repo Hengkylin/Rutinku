@@ -25,9 +25,11 @@ class HabitRepository {
     final prefs = await SharedPreferences.getInstance();
     final String? habitsJson = prefs.getString(_storageKey);
 
-    if (habitsJson != null) {
-      final List<dynamic> decodedData = json.decode(habitsJson);
-      return decodedData.map((map) => HabitModel.fromMap(map)).toList();
+    if (habitsJson != null && habitsJson.isNotEmpty) {
+      final List<dynamic> decodedData = json.decode(habitsJson) as List<dynamic>;
+      return decodedData
+          .map((item) => HabitModel.fromMap(item as Map<String, dynamic>))
+          .toList();
     }
     return []; // Kembalikan list kosong jika belum ada data di HP
   }
