@@ -5,12 +5,14 @@ import 'edit_habit_bottom_sheet.dart';
 
 class HabitCard extends StatelessWidget {
   final HabitModel habit;
+  final String? parentName;
   final VoidCallback onToggle;
   final VoidCallback onLongPress;
 
   const HabitCard({
     super.key,
     required this.habit,
+    this.parentName,
     required this.onToggle,
     required this.onLongPress,
   });
@@ -45,25 +47,40 @@ class HabitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Gunakan reminderTime/currentStreak jika ada, atau fallback ke mock data
+    final todayRecord = habit.todayRecord;
+    final status = todayRecord?.status;
+    final isCompleted = status == 'completed';
+    final isSkipped = status == 'skipped';
+    final isRest = status == 'rest';
+    final todayMood = todayRecord?.mood;
+
+    // Gunakan reminderTime jika ada, atau fallback ke mock data
     final mockTime = habit.reminderTime != null && habit.reminderTime!.isNotEmpty
         ? habit.reminderTime!
         : (habit.title.toLowerCase().contains('air')
             ? 'Sepanjang hari'
             : '07:00');
-    final mockStreak = habit.currentStreak > 0
-        ? '${habit.currentStreak} hari'
-        : (habit.title.toLowerCase().contains('air') ? '8 hari' : '12 hari');
+
+    // Penyesuaian warna kartu berdasarkan status hari ini
+    Color cardBgColor = Colors.white;
+    Color cardBorderColor = Colors.grey.shade200;
+    if (isRest) {
+      cardBgColor = const Color(0xFFF8FAFC);
+      cardBorderColor = const Color(0xFFCBD5E1);
+    } else if (isSkipped) {
+      cardBgColor = const Color(0xFFF8FAFC);
+      cardBorderColor = const Color(0xFFE2E8F0);
+    }
 
     return GestureDetector(
-      onLongPress: onLongPress, // Tahan lama untuk memunculkan edit/hapus
+      onLongPress: onLongPress, // Tahan lama untuk memunculkan aksi
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBgColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200, width: 1.5),
+          border: Border.all(color: cardBorderColor, width: 1.5),
         ),
         child: Row(
           children: [
@@ -72,12 +89,16 @@ class HabitCard extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: _getIconBackgroundColor(habit.title),
+                color: isRest
+                    ? const Color(0xFFE2E8F0)
+                    : _getIconBackgroundColor(habit.title),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
-                _getIconData(habit.title),
-                color: _getIconColor(habit.title),
+                isRest ? Icons.hotel_outlined : _getIconData(habit.title),
+                color: isRest
+                    ? const Color(0xFF64748B)
+                    : _getIconColor(habit.title),
                 size: 26,
               ),
             ),
@@ -88,49 +109,190 @@ class HabitCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    habit.title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: habit.isCompletedToday
-                          ? Colors.grey.shade400
-                          : const Color(0xFF334155),
-                      decoration: habit.isCompletedToday
-                          ? TextDecoration.lineThrough
-                          : null,
+                  if (parentName != null && parentName!.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.subdirectory_arrow_right,
+                          size: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Sesudah: $parentName',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 3),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          habit.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: isCompleted || isSkipped || isRest
+                                ? Colors.grey.shade500
+                                : const Color(0xFF334155),
+                            decoration: (isCompleted || isSkipped)
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isRest) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Libur',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ] else if (isSkipped) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Dilewati',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Progress mingguan
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: habit.weeklyProgress,
+                            minHeight: 4,
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              habit.weeklyProgress >= 1.0
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFF3B82F6),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${(habit.weeklyProgress * 100).toInt()}%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Icon(
                         Icons.schedule,
-                        size: 14,
+                        size: 13,
                         color: Colors.grey.shade500,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         mockTime,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           color: Colors.grey.shade500,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.local_fire_department_outlined,
-                        size: 14,
-                        color: Color(0xFFF97316),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        mockStreak,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFF97316),
+                      if (habit.streakCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFFFEDD5),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('🔥', style: TextStyle(fontSize: 10)),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${habit.streakCount} hari',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFEA580C),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
+                      if (todayMood != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3E8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFE9D5FF),
+                            ),
+                          ),
+                          child: Text(
+                            todayMood,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -164,7 +326,7 @@ class HabitCard extends StatelessWidget {
               },
             ),
 
-            // 3. Tombol Check-in Kanan
+            // 3. Tombol Status / Check-in Kanan
             GestureDetector(
               onTap: onToggle,
               child: AnimatedContainer(
@@ -172,17 +334,31 @@ class HabitCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: habit.isCompletedToday
-                      ? const Color(0xFFD9F99D) // Warna lime green saat selesai
-                      : Colors.grey.shade100,
+                  color: isCompleted
+                      ? const Color(0xFFD9F99D)
+                      : (isRest
+                          ? const Color(0xFFE2E8F0)
+                          : (isSkipped
+                              ? const Color(0xFFFEE2E2)
+                              : Colors.grey.shade100)),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.check,
-                  color: habit.isCompletedToday
+                  isCompleted
+                      ? Icons.check
+                      : (isRest
+                          ? Icons.hotel_outlined
+                          : (isSkipped
+                              ? Icons.skip_next_outlined
+                              : Icons.check)),
+                  color: isCompleted
                       ? Colors.black87
-                      : Colors.grey.shade400,
-                  size: 24,
+                      : (isRest
+                          ? const Color(0xFF475569)
+                          : (isSkipped
+                              ? const Color(0xFFDC2626)
+                              : Colors.grey.shade400)),
+                  size: 22,
                 ),
               ),
             ),

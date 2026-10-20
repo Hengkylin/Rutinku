@@ -23,6 +23,7 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _categoryController;
   late final TextEditingController _reminderController;
+  String? _selectedParentHabitId;
   bool _isSubmitting = false;
 
   @override
@@ -57,6 +58,7 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
             reminderTime: _reminderController.text.trim().isEmpty
                 ? null
                 : _reminderController.text.trim(),
+            parentHabitId: _selectedParentHabitId,
           );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -101,6 +103,9 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final habitState = ref.watch(habitNotifierProvider);
+    final existingHabits = habitState.value ?? [];
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
@@ -193,6 +198,45 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
                 controller: _categoryController,
                 enabled: !_isSubmitting,
                 decoration: _inputDecoration(hintText: 'Contoh: Kesehatan'),
+              ),
+              const SizedBox(height: 18),
+
+              // 3. Tautkan dengan Rutinitas (Habit Stacking)
+              const Text(
+                'Tautkan dengan Rutinitas (Habit Stacking)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String?>(
+                initialValue: _selectedParentHabitId,
+                isExpanded: true,
+                decoration: _inputDecoration(hintText: 'Pilih rutinitas pemicu'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Tidak ditautkan (Mandiri)'),
+                  ),
+                  ...existingHabits.map(
+                    (h) => DropdownMenuItem<String?>(
+                      value: h.id,
+                      child: Text(
+                        h.title,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: _isSubmitting
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _selectedParentHabitId = value;
+                        });
+                      },
               ),
               const SizedBox(height: 18),
 

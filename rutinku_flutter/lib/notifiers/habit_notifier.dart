@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:intl/intl.dart';
 
 import '../models/habit_model.dart';
 import '../repositories/habit_repository.dart';
@@ -7,8 +7,6 @@ import '../repositories/habit_repository.dart';
 final habitRepositoryProvider = Provider<HabitRepository>((ref) {
   return HabitRepository();
 });
-
-final primogemsProvider = StateProvider<int>((ref) => 0);
 
 final habitNotifierProvider =
     AsyncNotifierProvider<HabitNotifier, List<HabitModel>>(() {
@@ -33,6 +31,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     String title, {
     String? category,
     String? reminderTime,
+    String? parentHabitId,
   }) async {
     final previousState = state;
     state = const AsyncValue.loading();
@@ -41,6 +40,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         title,
         category: category,
         reminderTime: reminderTime,
+        parentHabitId: parentHabitId,
       );
       state = await AsyncValue.guard(() => _repository.fetchHabits());
     } catch (e) {
@@ -49,17 +49,24 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     }
   }
 
-  // FITUR BARU: Edit
+  // FITUR: Edit
   Future<void> updateHabit(
     String id,
     String newTitle,
     String newCategory,
-    String newReminder,
-  ) async {
+    String newReminder, {
+    String? parentHabitId,
+  }) async {
     final previousState = state;
     state = const AsyncValue.loading();
     try {
-      await _repository.updateHabit(id, newTitle, newCategory, newReminder);
+      await _repository.updateHabit(
+        id,
+        newTitle,
+        newCategory,
+        newReminder,
+        parentHabitId: parentHabitId,
+      );
       state = await AsyncValue.guard(() => _repository.fetchHabits());
     } catch (e) {
       state = previousState;
@@ -67,8 +74,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     }
   }
 
-  // FITUR BARU: Toggle Check-in & Gamifikasi
-  Future<void> toggleCheckIn(String id) async {
+  // FITUR BARU: Toggle Check-in
+  Future<void> toggleCheckIn(String id, DateTime date) async {
     final previousState = state;
     final currentList = state.value;
     if (currentList == null) return;
@@ -77,9 +84,19 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     if (habitIndex == -1) return;
 
     final currentHabit = currentList[habitIndex];
-    final updatedHabit = currentHabit.copyWith(
-      isCompletedToday: !currentHabit.isCompletedToday,
-    );
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final updatedRecords = List<HabitRecord>.from(currentHabit.records);
+    final existingIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+
+    if (existingIndex != -1 && updatedRecords[existingIndex].status == 'completed') {
+      updatedRecords.removeAt(existingIndex);
+    } else if (existingIndex == -1) {
+      updatedRecords.add(HabitRecord(date: dateStr, status: 'completed'));
+    } else {
+      updatedRecords[existingIndex] = HabitRecord(date: dateStr, status: 'completed');
+    }
+
+    final updatedHabit = currentHabit.copyWith(records: updatedRecords);
 
     // Optimistic UI Update: perbarui state AsyncValue.data secara langsung di awal
     final updatedList = List<HabitModel>.from(currentList);
@@ -87,12 +104,71 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     state = AsyncValue.data(updatedList);
 
     try {
-      await _repository.toggleCheckIn(id);
-      final points = updatedHabit.isCompletedToday ? 15 : -15;
-      ref.read(primogemsProvider.notifier).state += points;
+      await _repository.toggleCheckIn(id, date);
     } catch (e) {
       // Jika repository throw error, kembalikan state ke kondisi sebelumnya
       state = previousState;
+    }
+  }
+
+  // FITUR: Update Detail Catatan / Status Jurnal (Mood & Recovery)
+  Future<void> updateHabitRecord(
+    String id,
+    DateTime date, {
+    String? status,
+    String? mood,
+    String? note,
+  }) async {
+    final previousState = state;
+    final currentList = state.value;
+    if (currentList == null) return;
+
+    final habitIndex = currentList.indexWhere((h) => h.id == id);
+    if (habitIndex == -1) return;
+
+    final currentHabit = currentList[habitIndex];
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final updatedRecords = List<HabitRecord>.from(currentHabit.records);
+    final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+
+    if (recordIndex != -1) {
+      final existing = updatedRecords[recordIndex];
+      updatedRecords[recordIndex] = HabitRecord(
+        date: dateStr,
+        status: status ?? existing.status,
+        mood: mood ?? existing.mood,
+        note: note ?? existing.note,
+      );
+    } else {
+      updatedRecords.add(
+        HabitRecord(
+          date: dateStr,
+          status: status ?? 'completed',
+          mood: mood,
+          note: note,
+        ),
+      );
+    }
+
+    final updatedHabit = currentHabit.copyWith(records: updatedRecords);
+
+    // Optimistic UI Update: perbarui list secara langsung di awal
+    final updatedList = List<HabitModel>.from(currentList);
+    updatedList[habitIndex] = updatedHabit;
+    state = AsyncValue.data(updatedList);
+
+    try {
+      await _repository.updateRecordDetails(
+        id,
+        date,
+        status: status,
+        mood: mood,
+        note: note,
+      );
+    } catch (e) {
+      // Jika repository gagal, rollback state
+      state = previousState;
+      throw Exception('Gagal memperbarui catatan refleksi');
     }
   }
 

@@ -6,7 +6,9 @@ import '../notifiers/habit_notifier.dart';
 import '../widgets/add_habit_bottom_sheet.dart';
 import '../widgets/edit_habit_bottom_sheet.dart';
 import '../widgets/habit_card.dart';
+import '../widgets/reflection_bottom_sheet.dart';
 import 'template_screen.dart';
+import 'sync_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -44,12 +46,12 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitState = ref.watch(habitNotifierProvider);
-    final primogems = ref.watch(primogemsProvider);
 
     // 1. Hitung metrik dari data habits (jika data tersedia)
     final habits = habitState.value ?? [];
     final totalTargets = habits.length;
-    final completedTargets = habits.where((h) => h.isCompletedToday).length;
+    final completedTargets =
+        habits.where((h) => h.isCompletedOn(DateTime.now())).length;
     final progressValue =
         totalTargets > 0 ? completedTargets / totalTargets : 0.0;
 
@@ -98,28 +100,28 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.purple.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.diamond,
-                                    color: Color(0xFFC084FC), size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$primogems',
-                                  style: const TextStyle(
-                                    color: Color(0xFFC084FC),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(21),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SyncScreen(),
                                 ),
-                              ],
+                              );
+                            },
+                            child: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.cloud_sync_outlined,
+                                color: Colors.white,
+                                size: 22,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -313,6 +315,14 @@ class DashboardScreen extends ConsumerWidget {
                       itemCount: habits.length,
                       itemBuilder: (context, index) {
                         final habit = habits[index];
+                        String? parentName;
+                        if (habit.parentHabitId != null) {
+                          final parentHabit = habits
+                              .where((h) => h.id == habit.parentHabitId)
+                              .firstOrNull;
+                          parentName = parentHabit?.title;
+                        }
+
                         return Dismissible(
                           key: Key(habit.id),
                           direction: DismissDirection.endToStart,
@@ -346,10 +356,11 @@ class DashboardScreen extends ConsumerWidget {
                           },
                           child: HabitCard(
                             habit: habit,
+                            parentName: parentName,
                             onToggle: () {
                               ref
                                   .read(habitNotifierProvider.notifier)
-                                  .toggleCheckIn(habit.id);
+                                  .toggleCheckIn(habit.id, DateTime.now());
                             },
                             onLongPress: () {
                               showModalBottomSheet(
@@ -363,6 +374,37 @@ class DashboardScreen extends ConsumerWidget {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.mood,
+                                            color: Color(0xFF9333EA),
+                                          ),
+                                          title: const Text(
+                                            'Catat Refleksi / Status',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          subtitle: const Text(
+                                            'Catat mood atau liburkan rutinitas hari ini',
+                                            style: TextStyle(fontSize: 12),
+                                          ),
+                                          onTap: () {
+                                            Navigator.pop(bottomSheetContext);
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              builder: (context) =>
+                                                  ReflectionBottomSheet(
+                                                habit: habit,
+                                                date: DateTime.now(),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        const Divider(height: 1),
                                         ListTile(
                                           leading: const Icon(Icons.edit,
                                               color: Colors.blue),
