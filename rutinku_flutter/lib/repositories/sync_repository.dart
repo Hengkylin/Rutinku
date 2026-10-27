@@ -1,67 +1,116 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/habit_model.dart';
+import 'habit_repository.dart';
 
+/// Repository Cloud Sync berbasis Supabase dengan strategi "Cloud Save JSONB".
+///
+/// Seluruh kebiasaan lokal (string JSON di SharedPreferences) disimpan apa
+/// adanya ke kolom JSONB `sync_data` pada tabel `user_data`:
+/// `{ 'user_id': <uuid>, 'sync_data': { 'habits': '<localJsonString>' } }`.
 class SyncRepository {
-  static const String endpoint = 'https://jsonplaceholder.typicode.com/todos';
+  static const String tableName = 'user_data';
 
-  /// Mengambil data dari mock backend API (JSONPlaceholder).
-  /// Memetakan respons JSON menjadi [HabitModel] dan mengambil 5 data pertama.
-  /// Melempar [Exception] jika HTTP status bukan 200.
-  /// Membiarkan [jsonDecode] melempar [FormatException] jika JSON rusak.
-  Future<List<HabitModel>> fetchHabitsFromCloud(http.Client client) async {
-    final response = await client.get(Uri.parse(endpoint));
+  /// [client] opsional agar mudah diganti saat pengujian. Jika null,
+  /// `Supabase.instance.client` diakses secara lazy (saat dibutuhkan).
+  SyncRepository({SupabaseClient? client}) : _client = client;
 
-    if (response.statusCode != 200) {
-      throw Exception('Gagal mengambil data dari cloud (HTTP ${response.statusCode})');
+  final SupabaseClient? _client;
+
+  SupabaseClient get _supabase => _client ?? Supabase.instance.client;
+
+  /// Pengguna yang sedang login (null jika belum login).
+  User? get currentUser => _supabase.auth.currentUser;
+
+  /// Email pengguna aktif, ditampilkan di SyncScreen.
+  String? get currentUserEmail => currentUser?.email;
+
+  /// Keluar dari akun Supabase.
+  Future<void> signOut() => _supabase.auth.signOut();
+
+  User _requireUser() {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('Anda belum login. Silakan login terlebih dahulu.');
     }
-
-    // Biarkan jsonDecode melempar FormatException jika JSON rusak
-    final dynamic decoded = jsonDecode(response.body);
-
-    if (decoded is! List) {
-      throw const FormatException('Format respons tidak berupa list JSON');
-    }
-
-    final List<dynamic> jsonList = decoded;
-    return jsonList.take(5).map((item) {
-      final map = Map<String, dynamic>.from(item as Map);
-      return HabitModel(
-        id: map['id']?.toString() ?? '',
-        title: map['title'] as String? ?? '',
-        category: map['category'] as String? ?? 'Cloud Sync',
-        records: map['records'] != null
-            ? (map['records'] as List<dynamic>)
-                .map((e) => HabitRecord.fromMap(Map<String, dynamic>.from(e as Map)))
-                .toList()
-            : (map['completedDates'] != null
-                ? (map['completedDates'] as List<dynamic>)
-                    .map((e) => HabitRecord(date: e.toString(), status: 'completed'))
-                    .toList()
-                : (map['completed'] == true
-                    ? [
-                        HabitRecord(
-                          date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                          status: 'completed',
-                        ),
-                      ]
-                    : [])),
-        parentHabitId: map['parentHabitId'] as String?,
-        reminderTime: map['reminderTime'] as String?,
-      );
-    }).toList();
+    return user;
   }
 
-  /// Mengirimkan data habits ke mock backend API dengan metode POST.
-  /// Mengembalikan true jika respons HTTP adalah 201 (Created).
-  Future<bool> backupHabitsToCloud(http.Client client, List<HabitModel> habits) async {
-    final response = await client.post(
-      Uri.parse(endpoint),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode(habits.map((h) => h.toMap()).toList()),
-    );
+  /// BACKUP: membaca string JSON kebiasaan dari SharedPreferences lokal lalu
+  /// melakukan upsert ke tabel `user_data`. Mengembalikan true jika sukses.
+  Future<bool> backupHabitsToCloud() async {
+    final user = _requireUser();
 
-    return response.statusCode == 201;
+    final prefs = await SharedPreferences.getInstance();
+    final String localJsonString =
+        prefs.getString(HabitRepository.storageKey) ?? '[]';
+
+    await _supabase.from(tableName).upsert(
+      {
+        'user_id': user.id,
+        'sync_data': {'habits': localJsonString},
+      },
+      onConflict: 'user_id',
+    );
+    return true;
+  }
+
+  /// FETCH: mengambil `sync_data` milik user dari Supabase dan
+  /// memetakannya menjadi [HabitModel]. TIDAK mengubah data lokal.
+  /// Mengembalikan list kosong jika user belum pernah mem-backup.
+  Future<List<HabitModel>> fetchHabitsFromCloud() async {
+    final jsonString = await _fetchRemoteHabitsString();
+    return jsonString == null ? [] : _parseHabits(jsonString);
+  }
+
+  /// RESTORE: mengambil data dari cloud lalu MENIMPA string JSON kebiasaan di
+  /// SharedPreferences lokal. Data divalidasi lebih dulu sebelum menimpa.
+  Future<List<HabitModel>> restoreHabitsFromCloud() async {
+    final jsonString = await _fetchRemoteHabitsString();
+    if (jsonString == null) return [];
+
+    final habits = _parseHabits(jsonString); // validasi sebelum menimpa
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(HabitRepository.storageKey, jsonString);
+    return habits;
+  }
+
+  /// Query `.from('user_data').select().eq('user_id', id)` dan mengambil
+  /// string `sync_data.habits`. Null jika baris belum ada.
+  Future<String?> _fetchRemoteHabitsString() async {
+    final user = _requireUser();
+
+    final row = await _supabase
+        .from(tableName)
+        .select()
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final syncData = row['sync_data'];
+    if (syncData is! Map) {
+      throw const FormatException('Format sync_data di cloud tidak valid');
+    }
+
+    final habits = syncData['habits'];
+    if (habits == null) return null;
+    if (habits is String) return habits;
+    // Toleransi jika habits tersimpan sebagai array JSONB langsung.
+    if (habits is List) return jsonEncode(habits);
+    throw const FormatException('Format habits di cloud tidak valid');
+  }
+
+  List<HabitModel> _parseHabits(String jsonString) {
+    if (jsonString.trim().isEmpty) return [];
+    final dynamic decoded = jsonDecode(jsonString);
+    if (decoded is! List) {
+      throw const FormatException('Format data habits bukan list JSON');
+    }
+    return decoded
+        .map((item) => HabitModel.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 }

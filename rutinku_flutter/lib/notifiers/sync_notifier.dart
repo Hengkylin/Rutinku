@@ -1,16 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import '../models/habit_model.dart';
 import '../repositories/sync_repository.dart';
+import 'habit_notifier.dart';
 
 final syncRepositoryProvider = Provider<SyncRepository>((ref) {
   return SyncRepository();
-});
-
-final syncHttpClientProvider = Provider<http.Client>((ref) {
-  final client = http.Client();
-  ref.onDispose(() => client.close());
-  return client;
 });
 
 final syncNotifierProvider =
@@ -20,25 +14,20 @@ final syncNotifierProvider =
 
 class SyncNotifier extends Notifier<AsyncValue<List<HabitModel>>> {
   late final SyncRepository _repository;
-  late final http.Client _client;
 
   @override
   AsyncValue<List<HabitModel>> build() {
     _repository = ref.watch(syncRepositoryProvider);
-    _client = ref.watch(syncHttpClientProvider);
     return const AsyncData<List<HabitModel>>([]);
   }
 
   /// Mengubah state menjadi AsyncLoading, lalu memanggil fetchHabitsFromCloud
+  /// (hanya pratinjau data cloud, tidak menimpa data lokal).
   Future<void> fetchData() async {
     state = const AsyncLoading();
     try {
-      final habits = await _repository.fetchHabitsFromCloud(_client);
-      if (habits.isEmpty) {
-        state = const AsyncData<List<HabitModel>>([]);
-      } else {
-        state = AsyncData<List<HabitModel>>(habits);
-      }
+      final habits = await _repository.fetchHabitsFromCloud();
+      state = AsyncData<List<HabitModel>>(habits);
     } catch (e, stackTrace) {
       state = AsyncError(e, stackTrace);
     }
@@ -49,8 +38,17 @@ class SyncNotifier extends Notifier<AsyncValue<List<HabitModel>>> {
     await fetchData();
   }
 
-  /// Memanggil POST backup data ke cloud
-  Future<bool> backupData(List<HabitModel> habits) async {
-    return _repository.backupHabitsToCloud(_client, habits);
+  /// Backup data lokal (SharedPreferences) ke Supabase.
+  Future<bool> backupData() async {
+    return _repository.backupHabitsToCloud();
+  }
+
+  /// Restore: menimpa data lokal dengan data cloud lalu memicu pembaruan
+  /// state kebiasaan agar UI Dashboard/Kalender ikut ter-refresh.
+  Future<int> restoreData() async {
+    final habits = await _repository.restoreHabitsFromCloud();
+    ref.invalidate(habitNotifierProvider);
+    state = AsyncData<List<HabitModel>>(habits);
+    return habits.length;
   }
 }

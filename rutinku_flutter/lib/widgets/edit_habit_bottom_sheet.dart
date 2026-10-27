@@ -317,7 +317,19 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
               TextFormField(
                 controller: _reminderController,
                 enabled: !_isSubmitting,
+                readOnly: true,
                 decoration: _inputDecoration(hintText: 'Contoh: 07:00'),
+                onTap: () async {
+                  final TimeOfDay? pickedTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (pickedTime != null) {
+                    final hour = pickedTime.hour.toString().padLeft(2, '0');
+                    final minute = pickedTime.minute.toString().padLeft(2, '0');
+                    _reminderController.text = '$hour:$minute';
+                  }
+                },
               ),
               const SizedBox(height: 28),
 

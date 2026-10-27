@@ -7,6 +7,7 @@ import '../widgets/add_habit_bottom_sheet.dart';
 import '../widgets/edit_habit_bottom_sheet.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/reflection_bottom_sheet.dart';
+import '../utils/camera_helper.dart';
 import 'template_screen.dart';
 import 'sync_screen.dart';
 
@@ -50,10 +51,12 @@ class DashboardScreen extends ConsumerWidget {
     // 1. Hitung metrik dari data habits (jika data tersedia)
     final habits = habitState.value ?? [];
     final totalTargets = habits.length;
-    final completedTargets =
-        habits.where((h) => h.isCompletedOn(DateTime.now())).length;
-    final progressValue =
-        totalTargets > 0 ? completedTargets / totalTargets : 0.0;
+    final completedTargets = habits
+        .where((h) => h.isCompletedOn(DateTime.now()))
+        .length;
+    final progressValue = totalTargets > 0
+        ? completedTargets / totalTargets
+        : 0.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -255,7 +258,9 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE2E8F0),
                           borderRadius: BorderRadius.circular(20),
@@ -286,8 +291,11 @@ class DashboardScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline,
-                            color: Colors.red, size: 48),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 48,
+                        ),
                         const SizedBox(height: 16),
                         Text(error.toString(), textAlign: TextAlign.center),
                         const SizedBox(height: 16),
@@ -303,10 +311,45 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   data: (habits) {
                     if (habits.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'Belum ada rutinitas.\nYuk, buat kebiasaan pertamamu!',
-                          textAlign: TextAlign.center,
+                      return Center(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFE2E8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.checklist_rounded,
+                                  size: 56,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Belum ada rutinitas.\nYuk, buat kebiasaan pertamamu!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1E293B),
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tekan tombol + di pojok kanan bawah untuk memulai.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }
@@ -337,8 +380,11 @@ class DashboardScreen extends ConsumerWidget {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Icon(Icons.delete_outline,
-                                    color: Colors.white, size: 24),
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'Hapus',
@@ -362,12 +408,16 @@ class DashboardScreen extends ConsumerWidget {
                                   .read(habitNotifierProvider.notifier)
                                   .toggleCheckIn(habit.id, DateTime.now());
                             },
+                            onCaptureMoment: () {
+                              _captureMoment(context, ref, habit);
+                            },
                             onLongPress: () {
                               showModalBottomSheet(
                                 context: context,
                                 shape: const RoundedRectangleBorder(
                                   borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(20)),
+                                    top: Radius.circular(20),
+                                  ),
                                 ),
                                 builder: (bottomSheetContext) {
                                   return SafeArea(
@@ -398,16 +448,18 @@ class DashboardScreen extends ConsumerWidget {
                                                   Colors.transparent,
                                               builder: (context) =>
                                                   ReflectionBottomSheet(
-                                                habit: habit,
-                                                date: DateTime.now(),
-                                              ),
+                                                    habit: habit,
+                                                    date: DateTime.now(),
+                                                  ),
                                             );
                                           },
                                         ),
                                         const Divider(height: 1),
                                         ListTile(
-                                          leading: const Icon(Icons.edit,
-                                              color: Colors.blue),
+                                          leading: const Icon(
+                                            Icons.edit,
+                                            color: Colors.blue,
+                                          ),
                                           title: const Text('Edit Kebiasaan'),
                                           onTap: () {
                                             Navigator.pop(bottomSheetContext);
@@ -417,11 +469,13 @@ class DashboardScreen extends ConsumerWidget {
                                               backgroundColor: Colors.white,
                                               shape:
                                                   const RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.vertical(
-                                                  top: Radius.circular(24),
-                                                ),
-                                              ),
+                                                    borderRadius:
+                                                        BorderRadius.vertical(
+                                                          top: Radius.circular(
+                                                            24,
+                                                          ),
+                                                        ),
+                                                  ),
                                               builder: (context) => Padding(
                                                 padding: EdgeInsets.only(
                                                   bottom: MediaQuery.of(context)
@@ -429,14 +483,17 @@ class DashboardScreen extends ConsumerWidget {
                                                       .bottom,
                                                 ),
                                                 child: EditHabitBottomSheet(
-                                                    habit: habit),
+                                                  habit: habit,
+                                                ),
                                               ),
                                             );
                                           },
                                         ),
                                         ListTile(
-                                          leading: const Icon(Icons.delete,
-                                              color: Colors.red),
+                                          leading: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
                                           title: const Text('Hapus Kebiasaan'),
                                           onTap: () {
                                             Navigator.pop(bottomSheetContext);
@@ -466,9 +523,7 @@ class DashboardScreen extends ConsumerWidget {
         onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const TemplateScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const TemplateScreen()),
           );
 
           if (!context.mounted) return;
@@ -541,5 +596,37 @@ class DashboardScreen extends ConsumerWidget {
       }
     }
   }
-}
 
+  void _captureMoment(
+    BuildContext context,
+    WidgetRef ref,
+    HabitModel habit,
+  ) async {
+    try {
+      final imagePath = await CameraHelper.takePicture();
+      if (imagePath != null && context.mounted) {
+        await ref
+            .read(habitNotifierProvider.notifier)
+            .saveMomentImage(habit.id, imagePath, DateTime.now());
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Momen untuk "${habit.title}" berhasil diabadikan! 📸'),
+              backgroundColor: const Color(0xFF10B981),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengambil foto momen: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}

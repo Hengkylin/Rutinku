@@ -8,6 +8,7 @@ class HabitCard extends StatelessWidget {
   final String? parentName;
   final VoidCallback onToggle;
   final VoidCallback onLongPress;
+  final VoidCallback? onCaptureMoment;
 
   const HabitCard({
     super.key,
@@ -15,6 +16,7 @@ class HabitCard extends StatelessWidget {
     this.parentName,
     required this.onToggle,
     required this.onLongPress,
+    this.onCaptureMoment,
   });
 
   // Fungsi pembantu sementara untuk mencocokkan ikon berdasarkan teks judul
@@ -149,7 +151,7 @@ class HabitCard extends StatelessWidget {
                                 ? TextDecoration.lineThrough
                                 : null,
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -227,23 +229,32 @@ class HabitCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  // Wrap (bukan Row) agar waktu, streak, dan mood otomatis
+                  // turun ke baris baru jika ruang tidak cukup (anti overflow).
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(
-                        Icons.schedule,
-                        size: 13,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        mockTime,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 13,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            mockTime,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
                       if (habit.streakCount > 0) ...[
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -274,7 +285,6 @@ class HabitCard extends StatelessWidget {
                         ),
                       ],
                       if (todayMood != null) ...[
-                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 5,
@@ -324,6 +334,23 @@ class HabitCard extends StatelessWidget {
                   ),
                 );
               },
+            ),
+
+            // Tombol Ikon Kamera (Abadikan Momen)
+            Tooltip(
+              message: 'Abadikan Momen',
+              child: IconButton(
+                icon: Icon(
+                  todayRecord?.momentImagePath != null
+                      ? Icons.camera_alt
+                      : Icons.camera_alt_outlined,
+                  color: todayRecord?.momentImagePath != null
+                      ? const Color(0xFF10B981)
+                      : Colors.grey.shade400,
+                  size: 22,
+                ),
+                onPressed: onCaptureMoment,
+              ),
             ),
 
             // 3. Tombol Status / Check-in Kanan

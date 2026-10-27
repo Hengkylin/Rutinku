@@ -1,31 +1,40 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
+import 'package:mocktail/mocktail.dart';
+import 'package:rutinku_flutter/models/habit_model.dart';
 import 'package:rutinku_flutter/notifiers/sync_notifier.dart';
 import 'package:rutinku_flutter/screens/sync_screen.dart';
 
 import 'api_sync_test.dart';
 
 void main() {
-  testWidgets('SyncScreen renders loading state initially when fetching', (tester) async {
-    final mockClient = MockClient((request) async {
-      // Delay to test loading state
-      await Future.delayed(const Duration(milliseconds: 500));
-      return http.Response('[]', 200);
-    });
+  late MockSyncRepository mockRepository;
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          syncHttpClientProvider.overrideWithValue(mockClient),
-        ],
-        child: const MaterialApp(
-          home: SyncScreen(),
-        ),
+  setUp(() {
+    mockRepository = MockSyncRepository();
+    when(() => mockRepository.currentUserEmail).thenReturn('user@rutinku.com');
+  });
+
+  Widget buildApp() {
+    return ProviderScope(
+      overrides: [
+        syncRepositoryProvider.overrideWithValue(mockRepository),
+      ],
+      child: const MaterialApp(
+        home: SyncScreen(),
       ),
     );
+  }
+
+  testWidgets('SyncScreen renders loading state initially when fetching', (tester) async {
+    when(() => mockRepository.fetchHabitsFromCloud()).thenAnswer((_) async {
+      // Delay to test loading state
+      await Future.delayed(const Duration(milliseconds: 500));
+      return <HabitModel>[];
+    });
+
+    await tester.pumpWidget(buildApp());
 
     // Initial post frame callback triggers fetchData() -> Loading
     await tester.pump();
@@ -36,89 +45,70 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('SyncScreen renders Empty State when API returns empty list', (tester) async {
-    final mockClient = MockClient((request) async {
-      return http.Response('[]', 200);
-    });
+  testWidgets('SyncScreen renders Empty State when cloud returns empty list', (tester) async {
+    when(() => mockRepository.fetchHabitsFromCloud())
+        .thenAnswer((_) async => <HabitModel>[]);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          syncHttpClientProvider.overrideWithValue(mockClient),
-        ],
-        child: const MaterialApp(
-          home: SyncScreen(),
-        ),
-      ),
-    );
-
+    await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Data di cloud masih kosong'), findsOneWidget);
     expect(find.byIcon(Icons.cloud_off_rounded), findsOneWidget);
+    // Email akun aktif tampil sebagai indikator koneksi
+    expect(find.text('user@rutinku.com'), findsOneWidget);
+
+    // Tombol Backup harus tetap ada & berfungsi saat cloud kosong (tidak dead end)
+    expect(find.text('Backup Data Lokal ke Cloud'), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
+
+    when(() => mockRepository.backupHabitsToCloud()).thenAnswer((_) async => true);
+    // Setelah backup sukses, data cloud di-refresh otomatis
+    when(() => mockRepository.fetchHabitsFromCloud()).thenAnswer(
+      (_) async => [HabitModel(id: '1', title: 'Kebiasaan Baru di Cloud')],
+    );
+    await tester.tap(find.text('Backup Data Lokal ke Cloud'));
+    await tester.pumpAndSettle();
+    verify(() => mockRepository.backupHabitsToCloud()).called(1);
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('Kebiasaan Baru di Cloud'), findsOneWidget);
   });
 
   testWidgets('SyncScreen renders Success State with ListView and Backup button', (tester) async {
-    final mockData = [
-      {'userId': 1, 'id': 1, 'title': 'Kebiasaan Cloud 1', 'completed': false},
-      {'userId': 1, 'id': 2, 'title': 'Kebiasaan Cloud 2', 'completed': true},
-    ];
-
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET') {
-        return http.Response(
-          jsonEncode(mockData),
-          200,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      }
-      return http.Response('{"id": 201}', 201);
-    });
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          syncHttpClientProvider.overrideWithValue(mockClient),
-        ],
-        child: const MaterialApp(
-          home: SyncScreen(),
-        ),
-      ),
+    when(() => mockRepository.fetchHabitsFromCloud()).thenAnswer(
+      (_) async => [
+        HabitModel(id: '1', title: 'Kebiasaan Cloud 1'),
+        HabitModel(id: '2', title: 'Kebiasaan Cloud 2'),
+      ],
     );
+    when(() => mockRepository.backupHabitsToCloud()).thenAnswer((_) async => true);
 
+    await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Kebiasaan Cloud 1'), findsOneWidget);
     expect(find.text('Kebiasaan Cloud 2'), findsOneWidget);
     expect(find.text('Backup Data Lokal ke Cloud'), findsOneWidget);
     expect(find.byType(ListView), findsOneWidget);
+    expect(find.text('user@rutinku.com'), findsOneWidget);
 
     // Tap backup button
     await tester.tap(find.text('Backup Data Lokal ke Cloud'));
     await tester.pumpAndSettle();
     expect(find.byType(SnackBar), findsOneWidget);
+    verify(() => mockRepository.backupHabitsToCloud()).called(1);
   });
 
   testWidgets('SyncScreen renders Error State with warning icon and Coba Lagi button', (tester) async {
-    final mockClient = MockClient((request) async {
-      return http.Response('Internal Server Error', 500);
-    });
+    when(() => mockRepository.fetchHabitsFromCloud())
+        .thenThrow(Exception('Gagal mengambil data dari cloud'));
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          syncHttpClientProvider.overrideWithValue(mockClient),
-        ],
-        child: const MaterialApp(
-          home: SyncScreen(),
-        ),
-      ),
-    );
-
+    await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
     expect(find.text('Coba Lagi'), findsOneWidget);
     expect(find.byType(ElevatedButton), findsOneWidget);
+    // Backup tetap tersedia walau state error
+    expect(find.text('Backup Data Lokal ke Cloud'), findsOneWidget);
   });
 }

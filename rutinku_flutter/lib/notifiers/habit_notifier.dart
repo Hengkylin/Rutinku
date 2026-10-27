@@ -118,6 +118,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     String? status,
     String? mood,
     String? note,
+    String? momentImagePath,
   }) async {
     final previousState = state;
     final currentList = state.value;
@@ -138,6 +139,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         status: status ?? existing.status,
         mood: mood ?? existing.mood,
         note: note ?? existing.note,
+        momentImagePath: momentImagePath ?? existing.momentImagePath,
       );
     } else {
       updatedRecords.add(
@@ -146,6 +148,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
           status: status ?? 'completed',
           mood: mood,
           note: note,
+          momentImagePath: momentImagePath,
         ),
       );
     }
@@ -164,11 +167,62 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         status: status,
         mood: mood,
         note: note,
+        momentImagePath: momentImagePath,
       );
     } catch (e) {
       // Jika repository gagal, rollback state
       state = previousState;
       throw Exception('Gagal memperbarui catatan refleksi');
+    }
+  }
+
+  // FITUR: Abadikan Momen (Visual Habit Journal)
+  Future<void> saveMomentImage(
+    String id,
+    String imagePath, [
+    DateTime? date,
+  ]) async {
+    final targetDate = date ?? DateTime.now();
+    final previousState = state;
+    final currentList = state.value;
+    if (currentList == null) return;
+
+    final habitIndex = currentList.indexWhere((h) => h.id == id);
+    if (habitIndex == -1) return;
+
+    final currentHabit = currentList[habitIndex];
+    final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+    final updatedRecords = List<HabitRecord>.from(currentHabit.records);
+    final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+
+    if (recordIndex != -1) {
+      final existing = updatedRecords[recordIndex];
+      updatedRecords[recordIndex] = existing.copyWith(
+        status: 'completed',
+        momentImagePath: imagePath,
+      );
+    } else {
+      updatedRecords.add(
+        HabitRecord(
+          date: dateStr,
+          status: 'completed',
+          momentImagePath: imagePath,
+        ),
+      );
+    }
+
+    final updatedHabit = currentHabit.copyWith(records: updatedRecords);
+
+    // Optimistic UI Update: perbarui list secara langsung di awal
+    final updatedList = List<HabitModel>.from(currentList);
+    updatedList[habitIndex] = updatedHabit;
+    state = AsyncValue.data(updatedList);
+
+    try {
+      await _repository.saveMomentImage(id, targetDate, imagePath);
+    } catch (e) {
+      state = previousState;
+      throw Exception('Gagal menyimpan foto momen');
     }
   }
 

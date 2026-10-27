@@ -6,26 +6,49 @@ class HabitRecord {
   final String status; // 'completed', 'skipped', 'rest'
   final String? mood;
   final String? note;
+  final String? momentImagePath;
 
   HabitRecord({
     required this.date,
     this.status = 'completed',
     this.mood,
     this.note,
+    this.momentImagePath,
   });
+
+  HabitRecord copyWith({
+    String? date,
+    String? status,
+    String? mood,
+    String? note,
+    String? momentImagePath,
+    bool clearMomentImagePath = false,
+  }) {
+    return HabitRecord(
+      date: date ?? this.date,
+      status: status ?? this.status,
+      mood: mood ?? this.mood,
+      note: note ?? this.note,
+      momentImagePath: clearMomentImagePath
+          ? null
+          : (momentImagePath ?? this.momentImagePath),
+    );
+  }
 
   Map<String, dynamic> toMap() => {
     'date': date,
     'status': status,
     'mood': mood,
     'note': note,
+    'momentImagePath': momentImagePath,
   };
 
   factory HabitRecord.fromMap(Map<String, dynamic> map) => HabitRecord(
     date: map['date'] ?? '',
     status: map['status'] ?? 'completed',
-    mood: map['mood'],
-    note: map['note'],
+    mood: map['mood'] as String?,
+    note: map['note'] as String?,
+    momentImagePath: map['momentImagePath'] as String?,
   );
 
   @override
@@ -36,11 +59,16 @@ class HabitRecord {
           date == other.date &&
           status == other.status &&
           mood == other.mood &&
-          note == other.note;
+          note == other.note &&
+          momentImagePath == other.momentImagePath;
 
   @override
   int get hashCode =>
-      date.hashCode ^ status.hashCode ^ mood.hashCode ^ note.hashCode;
+      date.hashCode ^
+      status.hashCode ^
+      mood.hashCode ^
+      note.hashCode ^
+      momentImagePath.hashCode;
 }
 
 class HabitModel {

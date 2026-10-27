@@ -59,6 +59,7 @@ void main() {
           'status': 'completed',
           'mood': 'happy',
           'note': '10 halaman',
+          'momentImagePath': null,
         },
       ]);
       expect(map['parentHabitId'], 'parent-1');

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -174,14 +176,69 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             child: habitState.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (err, stack) =>
-                  Center(child: Text('Terjadi kesalahan: $err')),
+              error: (err, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        'Terjadi kesalahan: $err',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          ref.read(habitNotifierProvider.notifier).retryFetch(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Coba Lagi'),
+                    ),
+                  ],
+                ),
+              ),
               data: (habits) {
                 if (habits.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Belum ada kebiasaan yang dibuat.',
-                      style: TextStyle(color: Colors.grey),
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE2E8F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.event_busy_rounded,
+                              size: 40,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Belum ada kebiasaan yang dibuat.',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Tambahkan kebiasaan di tab Beranda agar riwayat check-in muncul di sini.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -192,6 +249,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   itemBuilder: (context, index) {
                     final habit = habits[index];
                     final isCompleted = habit.isCompletedOn(currentSelectedDay);
+                    final dayRecord = habit.getRecordOn(currentSelectedDay);
+                    final momentImagePath = dayRecord?.momentImagePath;
+                    final hasMoment = momentImagePath != null && momentImagePath.isNotEmpty;
 
                     return Card(
                       elevation: 0,
@@ -262,24 +322,75 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                 ),
                               )
                             : null,
-                        trailing: habit.reminderTime != null &&
-                                habit.reminderTime!.isNotEmpty
+                        trailing: (hasMoment ||
+                                (habit.reminderTime != null &&
+                                    habit.reminderTime!.isNotEmpty))
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.schedule,
-                                    size: 14,
-                                    color: Colors.grey.shade400,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    habit.reminderTime!,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade500,
-                                      fontSize: 12,
+                                  if (hasMoment) ...[
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(10),
+                                      onTap: () => _showMomentPhotoDialog(
+                                        context,
+                                        habit,
+                                        momentImagePath,
+                                        currentSelectedDay,
+                                      ),
+                                      child: Tooltip(
+                                        message: 'Lihat Momen',
+                                        child: Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: const Color(0xFF10B981),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8.5),
+                                            child: Image.file(
+                                              File(momentImagePath),
+                                              width: 36,
+                                              height: 36,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error,
+                                                      stackTrace) =>
+                                                  Container(
+                                                color: const Color(0xFFECFDF5),
+                                                child: const Icon(
+                                                  Icons.photo_library,
+                                                  size: 20,
+                                                  color: Color(0xFF10B981),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  if (habit.reminderTime != null &&
+                                      habit.reminderTime!.isNotEmpty) ...[
+                                    Icon(
+                                      Icons.schedule,
+                                      size: 14,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      habit.reminderTime!,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               )
                             : null,
@@ -292,6 +403,145 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showMomentPhotoDialog(
+    BuildContext context,
+    HabitModel habit,
+    String imagePath,
+    DateTime date,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          clipBehavior: Clip.antiAlias,
+          backgroundColor: Colors.white,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                color: const Color(0xFF1E293B),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.photo_library,
+                      color: Color(0xFFD9F99D),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            habit.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            DateFormat('dd MMMM yyyy').format(date),
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+                      onPressed: () => Navigator.pop(dialogContext),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              // Foto Penuh
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.55,
+                    ),
+                    child: Image.file(
+                      File(imagePath),
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey.shade100,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey.shade400,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Foto tidak dapat dimuat',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Tombol Tutup
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E293B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text(
+                      'Tutup',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

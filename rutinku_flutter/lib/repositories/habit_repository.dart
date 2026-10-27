@@ -8,7 +8,8 @@ import '../services/notification_service.dart';
 
 class HabitRepository {
   // Kunci utama untuk menyimpan data di memori lokal (Storage)
-  static const String _storageKey = 'rutinku_habits';
+  static const String storageKey = 'rutinku_habits';
+  static const String _storageKey = storageKey;
 
   final NotificationService _notificationService;
 
@@ -146,6 +147,7 @@ class HabitRepository {
     String? status,
     String? mood,
     String? note,
+    String? momentImagePath,
   }) async {
     final habits = await fetchHabits();
     final index = habits.indexWhere((h) => h.id == id);
@@ -162,6 +164,7 @@ class HabitRepository {
           status: status ?? existing.status,
           mood: mood ?? existing.mood,
           note: note ?? existing.note,
+          momentImagePath: momentImagePath ?? existing.momentImagePath,
         );
       } else {
         updatedRecords.add(
@@ -170,6 +173,42 @@ class HabitRepository {
             status: status ?? 'completed',
             mood: mood,
             note: note,
+            momentImagePath: momentImagePath,
+          ),
+        );
+      }
+
+      habits[index] = habit.copyWith(records: updatedRecords);
+      await _saveHabitsToStorage(habits);
+    }
+  }
+
+  // UPDATE (Visual Habit Journal): Menyimpan path foto momen ke check-in hari ini
+  Future<void> saveMomentImage(
+    String id,
+    DateTime date,
+    String imagePath,
+  ) async {
+    final habits = await fetchHabits();
+    final index = habits.indexWhere((h) => h.id == id);
+    if (index != -1) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final habit = habits[index];
+      final updatedRecords = List<HabitRecord>.from(habit.records);
+      final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+
+      if (recordIndex != -1) {
+        final existing = updatedRecords[recordIndex];
+        updatedRecords[recordIndex] = existing.copyWith(
+          status: 'completed',
+          momentImagePath: imagePath,
+        );
+      } else {
+        updatedRecords.add(
+          HabitRecord(
+            date: dateStr,
+            status: 'completed',
+            momentImagePath: imagePath,
           ),
         );
       }

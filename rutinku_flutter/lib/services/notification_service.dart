@@ -72,15 +72,34 @@ class NotificationService {
     }
   }
 
-  /// Meminta izin notifikasi (khusus Android 13+ dan iOS)
+  /// Meminta izin notifikasi (khusus Android 13+ dan iOS).
+  ///
+  /// Setiap permintaan izin dibungkus try-catch terpisah sehingga penolakan
+  /// atau error pada satu izin tidak menghambat izin lain maupun alur utama
+  /// aplikasi (tidak pernah melempar exception ke pemanggil).
   Future<void> requestPermission() async {
+    // 1. Izin notifikasi Android 13+ (POST_NOTIFICATIONS)
     try {
       final androidImplementation = _notificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidImplementation?.requestNotificationsPermission();
-      await androidImplementation?.requestExactAlarmsPermission();
+    } catch (_) {
+      // Izin ditolak / environment non-mobile (test): lanjutkan tanpa crash
+    }
 
+    // 2. Izin alarm presisi Android 12+/14+ (SCHEDULE_EXACT_ALARM)
+    try {
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidImplementation?.requestExactAlarmsPermission();
+    } catch (_) {
+      // Izin ditolak / tidak didukung: lanjutkan tanpa crash
+    }
+
+    // 3. Izin notifikasi iOS
+    try {
       final iosImplementation = _notificationsPlugin
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>();
@@ -90,7 +109,7 @@ class NotificationService {
         sound: true,
       );
     } catch (_) {
-      // Mengabaikan error pada environment non-mobile/test
+      // Mengabaikan error pada environment non-iOS/test
     }
   }
 

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
-import '../notifiers/habit_notifier.dart';
 import '../notifiers/sync_notifier.dart';
+import 'auth_screen.dart';
 
 class SyncScreen extends ConsumerStatefulWidget {
   const SyncScreen({super.key});
@@ -14,6 +14,7 @@ class SyncScreen extends ConsumerStatefulWidget {
 
 class _SyncScreenState extends ConsumerState<SyncScreen> {
   bool _isBackingUp = false;
+  bool _isRestoring = false;
 
   @override
   void initState() {
@@ -26,11 +27,10 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
 
   Future<void> _handleBackup() async {
     setState(() => _isBackingUp = true);
+    var backedUp = false;
     try {
-      final localHabits = ref.read(habitNotifierProvider).value ?? [];
-      final success = await ref
-          .read(syncNotifierProvider.notifier)
-          .backupData(localHabits);
+      final success = await ref.read(syncNotifierProvider.notifier).backupData();
+      backedUp = success;
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -45,7 +45,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
               Expanded(
                 child: Text(
                   success
-                      ? 'Berhasil mem-backup ${localHabits.length} kebiasaan ke cloud!'
+                      ? 'Berhasil mem-backup data kebiasaan ke cloud!'
                       : 'Gagal mem-backup data ke cloud.',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
@@ -72,11 +72,179 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     } finally {
       if (mounted) setState(() => _isBackingUp = false);
     }
+
+    // Refresh UI agar data yang baru di-backup langsung muncul dari cloud
+    if (backedUp && mounted) {
+      await ref.read(syncNotifierProvider.notifier).fetchData();
+    }
+  }
+
+  Future<void> _handleRestore() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Restore dari Cloud?'),
+        content: const Text(
+          'Seluruh data kebiasaan di perangkat ini akan ditimpa dengan data dari cloud.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRestoring = true);
+    try {
+      final count = await ref.read(syncNotifierProvider.notifier).restoreData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Berhasil me-restore $count kebiasaan dari cloud!'),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal me-restore data: $e'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isRestoring = false);
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      await ref.read(syncRepositoryProvider).signOut();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal logout: $e'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+      (route) => false,
+    );
+  }
+
+  Widget _buildAccountBanner(String? email) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_circle_rounded, color: Color(0xFF1E293B), size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Akun terhubung',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+                Text(
+                  email ?? '-',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackupBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: FilledButton.icon(
+              key: const Key('sync_backup_button'),
+              icon: _isBackingUp
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.cloud_upload, size: 22),
+              label: Text(
+                _isBackingUp ? 'Mem-backup...' : 'Backup Data Lokal ke Cloud',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1E293B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: (_isBackingUp || _isRestoring) ? null : _handleBackup,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final syncState = ref.watch(syncNotifierProvider);
+    final email = ref.watch(syncRepositoryProvider).currentUserEmail;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -100,18 +268,32 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
               ref.read(syncNotifierProvider.notifier).fetchData();
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Logout',
+            onPressed: _handleLogout,
+          ),
         ],
       ),
-      body: syncState.when(
-        data: (habits) {
-          if (habits.isEmpty) {
-            return _buildEmptyState();
-          }
-          return _buildSuccessState(habits);
-        },
-        loading: () => _buildLoadingState(),
-        error: (error, stackTrace) => _buildErrorState(error),
+      body: Column(
+        children: [
+          _buildAccountBanner(email),
+          Expanded(
+            child: syncState.when(
+              data: (habits) {
+                if (habits.isEmpty) {
+                  return _buildEmptyState();
+                }
+                return _buildSuccessState(habits);
+              },
+              loading: () => _buildLoadingState(),
+              error: (error, stackTrace) => _buildErrorState(error),
+            ),
+          ),
+        ],
       ),
+      // Tombol Backup persisten: selalu tampil di state empty, success, loading, maupun error
+      bottomNavigationBar: _buildBackupBar(),
     );
   }
 
@@ -254,7 +436,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Belum ada kebiasaan yang tersimpan di cloud atau API merespons list kosong.',
+              'Belum ada kebiasaan yang di-backup ke akun ini. Gunakan Backup untuk menyimpan data lokalmu.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -288,7 +470,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   Widget _buildSuccessState(List<HabitModel> habits) {
     return Column(
       children: [
-        // Top Action Card: Info & Backup Button
+        // Top Action Card: Info & Restore Button (Backup ada di bottomNavigationBar)
         Container(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           padding: const EdgeInsets.all(16),
@@ -335,7 +517,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
                           ),
                         ),
                         Text(
-                          '${habits.length} kebiasaan berhasil dimuat dari API',
+                          '${habits.length} kebiasaan berhasil dimuat dari Supabase',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -347,31 +529,27 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-              ElevatedButton.icon(
-                icon: _isBackingUp
+              OutlinedButton.icon(
+                icon: _isRestoring
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.cloud_upload_outlined, size: 20),
+                    : const Icon(Icons.cloud_download_outlined, size: 20),
                 label: Text(
-                  _isBackingUp ? 'Mem-backup...' : 'Backup Data Lokal ke Cloud',
+                  _isRestoring ? 'Me-restore...' : 'Restore Cloud ke Perangkat Ini',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E293B),
-                  foregroundColor: Colors.white,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1E293B),
+                  side: const BorderSide(color: Color(0xFF1E293B)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 0,
                 ),
-                onPressed: _isBackingUp ? null : _handleBackup,
+                onPressed: (_isBackingUp || _isRestoring) ? null : _handleRestore,
               ),
             ],
           ),

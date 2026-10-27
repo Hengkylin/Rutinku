@@ -1,96 +1,30 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
+import 'package:mocktail/mocktail.dart';
 import 'package:rutinku_flutter/models/habit_model.dart';
+import 'package:rutinku_flutter/notifiers/sync_notifier.dart';
 import 'package:rutinku_flutter/repositories/sync_repository.dart';
 
-/// Kelas MockClient sederhana yang meng-implements http.Client
-/// untuk memanipulasi respons HTTP saat pengujian API Cloud Sync.
-typedef MockRequestHandler = Future<http.Response> Function(http.BaseRequest request);
-
-class MockClient implements http.Client {
-  final MockRequestHandler _handler;
-
-  MockClient(this._handler);
-
-  @override
-  Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
-    final request = http.Request('GET', url);
-    if (headers != null) request.headers.addAll(headers);
-    return _handler(request);
-  }
-
-  @override
-  Future<http.Response> post(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) async {
-    final request = http.Request('POST', url);
-    if (headers != null) request.headers.addAll(headers);
-    if (body != null) {
-      if (body is String) {
-        request.body = body;
-      } else if (body is List<int>) {
-        request.bodyBytes = body;
-      } else if (body is Map) {
-        request.bodyFields = Map<String, String>.from(body);
-      }
-    }
-    return _handler(request);
-  }
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final response = await _handler(request);
-    return http.StreamedResponse(
-      Stream.value(response.bodyBytes),
-      response.statusCode,
-      headers: response.headers,
-      isRedirect: response.isRedirect,
-      persistentConnection: response.persistentConnection,
-      reasonPhrase: response.reasonPhrase,
-      request: response.request,
-    );
-  }
-
-  @override
-  void close() {}
-
-  @override
-  Future<http.Response> delete(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<http.Response> head(Uri url, {Map<String, String>? headers}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<http.Response> patch(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<http.Response> put(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<String> read(Uri url, {Map<String, String>? headers}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Uint8List> readBytes(Uri url, {Map<String, String>? headers}) =>
-      throw UnimplementedError();
-}
+/// Mock SyncRepository (Mocktail) agar pengujian tidak menembak server
+/// Supabase sungguhan. Dipakai juga oleh sync_screen_test.dart.
+class MockSyncRepository extends Mock implements SyncRepository {}
 
 void main() {
   group('Tugas Pertemuan Ke-6: 6 Unit Test Wajib Cloud Sync & Vertical Slice', () {
-    late SyncRepository syncRepository;
+    late MockSyncRepository mockRepository;
+    late ProviderContainer container;
 
     setUp(() {
-      syncRepository = SyncRepository();
+      mockRepository = MockSyncRepository();
+      container = ProviderContainer(
+        overrides: [
+          syncRepositoryProvider.overrideWithValue(mockRepository),
+        ],
+      );
+    });
+
+    tearDown(() {
+      container.dispose();
     });
 
     // -------------------------------------------------------------------------
@@ -167,37 +101,29 @@ void main() {
     // 3. API Sukses
     // -------------------------------------------------------------------------
     test(
-      '3. API Sukses: fetchHabitsFromCloud merespons HTTP 200 dengan JSON array valid dan mengembalikan List<HabitModel>',
+      '3. API Sukses: fetchData memanggil repository dan state berisi List<HabitModel> dari cloud',
       () async {
-        final mockResponseData = [
-          {'userId': 1, 'id': 1, 'title': 'Lari Pagi 20 Menit', 'completed': true},
-          {'userId': 1, 'id': 2, 'title': 'Minum Air 2 Liter', 'completed': false},
-          {'userId': 1, 'id': 3, 'title': 'Meditasi 10 Menit', 'completed': true},
-          {'userId': 1, 'id': 4, 'title': 'Membaca Buku 15 Menit', 'completed': false},
-          {'userId': 1, 'id': 5, 'title': 'Tidur Sebelum Jam 23.00', 'completed': true},
-          {'userId': 1, 'id': 6, 'title': 'Data ke-6 (seharusnya tidak diambil)', 'completed': false},
+        final cloudHabits = [
+          HabitModel(id: '1', title: 'Lari Pagi 20 Menit'),
+          HabitModel(id: '2', title: 'Minum Air 2 Liter'),
+          HabitModel(id: '3', title: 'Meditasi 10 Menit'),
+          HabitModel(id: '4', title: 'Membaca Buku 15 Menit'),
+          HabitModel(id: '5', title: 'Tidur Sebelum Jam 23.00'),
         ];
+        when(() => mockRepository.fetchHabitsFromCloud())
+            .thenAnswer((_) async => cloudHabits);
 
-        final mockClient = MockClient((request) async {
-          expect(request.url.toString(), SyncRepository.endpoint);
-          expect(request.method, 'GET');
-          return http.Response(
-            jsonEncode(mockResponseData),
-            200,
-            headers: {'content-type': 'application/json; charset=utf-8'},
-          );
-        });
+        await container.read(syncNotifierProvider.notifier).fetchData();
 
-        final habits = await syncRepository.fetchHabitsFromCloud(mockClient);
-
-        expect(habits, isA<List<HabitModel>>());
-        expect(habits.length, 5, reason: 'Hanya mengambil maksimal 5 data pertama');
-        expect(habits[0].id, '1');
-        expect(habits[0].title, 'Lari Pagi 20 Menit');
-        expect(habits[1].id, '2');
-        expect(habits[1].title, 'Minum Air 2 Liter');
-        expect(habits[4].id, '5');
-        expect(habits[4].title, 'Tidur Sebelum Jam 23.00');
+        final state = container.read(syncNotifierProvider);
+        expect(state, isA<AsyncData<List<HabitModel>>>());
+        expect(state.value, isA<List<HabitModel>>());
+        expect(state.value!.length, 5);
+        expect(state.value![0].id, '1');
+        expect(state.value![0].title, 'Lari Pagi 20 Menit');
+        expect(state.value![4].id, '5');
+        expect(state.value![4].title, 'Tidur Sebelum Jam 23.00');
+        verify(() => mockRepository.fetchHabitsFromCloud()).called(1);
       },
     );
 
@@ -205,52 +131,38 @@ void main() {
     // 4. Data Kosong
     // -------------------------------------------------------------------------
     test(
-      '4. Data Kosong: fetchHabitsFromCloud merespons HTTP 200 dengan [] dan mengembalikan list kosong (panjang 0)',
+      '4. Data Kosong: fetchData dengan cloud kosong menghasilkan state AsyncData list kosong (panjang 0)',
       () async {
-        final mockClient = MockClient((request) async {
-          expect(request.url.toString(), SyncRepository.endpoint);
-          return http.Response(
-            '[]',
-            200,
-            headers: {'content-type': 'application/json; charset=utf-8'},
-          );
-        });
+        when(() => mockRepository.fetchHabitsFromCloud())
+            .thenAnswer((_) async => <HabitModel>[]);
 
-        final habits = await syncRepository.fetchHabitsFromCloud(mockClient);
+        await container.read(syncNotifierProvider.notifier).fetchData();
 
-        expect(habits, isA<List<HabitModel>>());
-        expect(habits, isEmpty);
-        expect(habits.length, 0);
+        final state = container.read(syncNotifierProvider);
+        expect(state, isA<AsyncData<List<HabitModel>>>());
+        expect(state.value, isEmpty);
+        expect(state.value!.length, 0);
       },
     );
 
     // -------------------------------------------------------------------------
-    // 5. HTTP Gagal
+    // 5. Request Gagal
     // -------------------------------------------------------------------------
     test(
-      '5. HTTP Gagal: fetchHabitsFromCloud merespons HTTP 404 atau 500, dan memastikan fungsi melempar Exception',
+      '5. Request Gagal: repository melempar Exception (mis. belum login / server error) dan state menjadi AsyncError',
       () async {
-        // Menguji respons HTTP 404
-        final mockClient404 = MockClient((request) async {
-          return http.Response('Not Found', 404);
-        });
+        when(() => mockRepository.fetchHabitsFromCloud())
+            .thenThrow(Exception('Gagal mengambil data dari cloud'));
 
-        expect(
-          () => syncRepository.fetchHabitsFromCloud(mockClient404),
-          throwsA(isA<Exception>()),
-          reason: 'Harus melempar Exception saat HTTP 404',
-        );
+        await container.read(syncNotifierProvider.notifier).fetchData();
 
-        // Menguji respons HTTP 500
-        final mockClient500 = MockClient((request) async {
-          return http.Response('Internal Server Error', 500);
-        });
+        final state = container.read(syncNotifierProvider);
+        expect(state, isA<AsyncError<List<HabitModel>>>());
+        expect(state.error, isA<Exception>());
 
-        expect(
-          () => syncRepository.fetchHabitsFromCloud(mockClient500),
-          throwsA(isA<Exception>()),
-          reason: 'Harus melempar Exception saat HTTP 500',
-        );
+        // retry() juga harus memanggil ulang repository
+        await container.read(syncNotifierProvider.notifier).retry();
+        verify(() => mockRepository.fetchHabitsFromCloud()).called(2);
       },
     );
 
@@ -258,46 +170,53 @@ void main() {
     // 6. JSON Rusak
     // -------------------------------------------------------------------------
     test(
-      '6. JSON Rusak: fetchHabitsFromCloud merespons HTTP 200 tetapi dengan body teks "{ invalid_json " (JSON rusak), dan pastikan melempar FormatException',
+      '6. JSON Rusak: repository melempar FormatException saat data cloud rusak dan state menjadi AsyncError berisi FormatException',
       () async {
-        final mockClient = MockClient((request) async {
-          return http.Response('{ invalid_json ', 200);
-        });
+        when(() => mockRepository.fetchHabitsFromCloud())
+            .thenThrow(const FormatException('Format data habits bukan list JSON'));
 
+        await container.read(syncNotifierProvider.notifier).fetchData();
+
+        final state = container.read(syncNotifierProvider);
+        expect(state, isA<AsyncError<List<HabitModel>>>());
         expect(
-          () => syncRepository.fetchHabitsFromCloud(mockClient),
-          throwsA(isA<FormatException>()),
-          reason: 'Harus membiarkan jsonDecode melempar FormatException saat JSON rusak',
+          state.error,
+          isA<FormatException>(),
+          reason: 'FormatException harus diteruskan apa adanya ke state',
         );
       },
     );
 
     // -------------------------------------------------------------------------
-    // Test Tambahan: Backup Habits ke Cloud (POST HTTP 201)
+    // Test Tambahan: Backup & Restore via SyncNotifier + Mock Repository
     // -------------------------------------------------------------------------
     test(
-      'Bonus Test: backupHabitsToCloud melakukan POST dan mengembalikan true jika status 201 (Created)',
+      'Bonus Test: backupData memanggil backupHabitsToCloud (true jika sukses) dan restoreData memuat ulang state',
       () async {
-        final mockClient201 = MockClient((request) async {
-          expect(request.method, 'POST');
-          expect(request.url.toString(), SyncRepository.endpoint);
-          return http.Response('{"id": 201}', 201);
-        });
+        final notifier = container.read(syncNotifierProvider.notifier);
 
-        final testHabits = [
-          HabitModel(id: 'local-1', title: 'Belajar Coding'),
-          HabitModel(id: 'local-2', title: 'Membaca Dokumentasi'),
-        ];
+        // Backup sukses
+        when(() => mockRepository.backupHabitsToCloud())
+            .thenAnswer((_) async => true);
+        expect(await notifier.backupData(), isTrue);
+        verify(() => mockRepository.backupHabitsToCloud()).called(1);
 
-        final success = await syncRepository.backupHabitsToCloud(mockClient201, testHabits);
-        expect(success, isTrue);
+        // Backup gagal -> exception diteruskan
+        when(() => mockRepository.backupHabitsToCloud())
+            .thenThrow(Exception('Anda belum login'));
+        expect(() => notifier.backupData(), throwsA(isA<Exception>()));
 
-        final mockClient500 = MockClient((request) async {
-          return http.Response('Server Error', 500);
-        });
-
-        final failed = await syncRepository.backupHabitsToCloud(mockClient500, testHabits);
-        expect(failed, isFalse);
+        // Restore -> repository menimpa data lokal, state diperbarui
+        when(() => mockRepository.restoreHabitsFromCloud()).thenAnswer(
+          (_) async => [
+            HabitModel(id: 'local-1', title: 'Belajar Coding'),
+            HabitModel(id: 'local-2', title: 'Membaca Dokumentasi'),
+          ],
+        );
+        final restored = await notifier.restoreData();
+        expect(restored, 2);
+        expect(container.read(syncNotifierProvider).value!.length, 2);
+        verify(() => mockRepository.restoreHabitsFromCloud()).called(1);
       },
     );
   });
