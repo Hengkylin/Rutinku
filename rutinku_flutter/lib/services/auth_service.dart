@@ -14,5 +14,9 @@ class AuthService {
     return _auth.signUp(email: email, password: password);
   }
 
+  Future<void> resetPasswordForEmail(String email) {
+    return _auth.resetPasswordForEmail(email);
+  }
+
   Future<void> logout() => _auth.signOut();
 }

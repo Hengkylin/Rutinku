@@ -16,7 +16,7 @@ class SyncRepository {
 
   /// [client] opsional agar mudah diganti saat pengujian. Jika null,
   /// `Supabase.instance.client` diakses secara lazy (saat dibutuhkan).
-  SyncRepository({SupabaseClient? client}) : _client = client;
+  SyncRepository({this._client});
 
   final SupabaseClient? _client;
 

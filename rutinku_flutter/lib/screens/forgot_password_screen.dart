@@ -1,37 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
-import 'main_screen.dart';
 
-/// Layar autentikasi (Login & Register) berbasis Supabase Auth.
-class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key, AuthService? authService})
-      : _authService = authService;
+/// Halaman Lupa Password untuk mengirim tautan reset password via Supabase Auth.
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key, this.authService});
 
-  final AuthService? _authService;
+  final AuthService? authService;
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   static const _navy = Color(0xFF1E293B);
   static const _lime = Color(0xFFD9F99D);
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
-  late final AuthService _auth = widget._authService ?? AuthService();
+  late final AuthService _auth = widget.authService ?? AuthService();
 
   bool _isLoading = false;
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -39,7 +35,8 @@ class _AuthScreenState extends State<AuthScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red.shade600 : const Color(0xFF16A34A),
+        backgroundColor:
+            isError ? Colors.red.shade600 : const Color(0xFF16A34A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -47,34 +44,27 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  void _goToDashboard() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen()),
-    );
+  void _handleBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+    }
   }
 
-  Future<void> _submit({required bool isRegister}) async {
+  Future<void> _handleSendResetLink() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isLoading = true);
     try {
       final email = _emailController.text.trim();
-      final password = _passwordController.text;
-
-      final response = isRegister
-          ? await _auth.register(email, password)
-          : await _auth.login(email, password);
+      await _auth.resetPasswordForEmail(email);
 
       if (!mounted) return;
-      if (response.session != null) {
-        _goToDashboard();
-      } else {
-        // Terjadi jika konfirmasi email diaktifkan di Supabase.
-        _showMessage(
-          'Registrasi berhasil. Silakan cek email Anda untuk verifikasi, lalu login.',
-          isError: false,
-        );
-      }
+      _showMessage(
+        'Link reset password telah dikirim! Silakan cek email Anda.',
+        isError: false,
+      );
     } on AuthException catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (e) {
@@ -84,11 +74,10 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration(String label, IconData icon, {Widget? suffix}) {
+  InputDecoration _fieldDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon, color: const Color(0xFF64748B)),
-      suffixIcon: suffix,
       filled: true,
       fillColor: const Color(0xFFF1F5F9),
       border: OutlineInputBorder(
@@ -114,10 +103,29 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FAFC),
+        foregroundColor: _navy,
+        elevation: 0,
+        leading: IconButton(
+          key: const Key('forgot_password_back_button'),
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Kembali',
+          onPressed: _isLoading ? null : _handleBack,
+        ),
+        title: const Text(
+          'Lupa Password',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: _navy,
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
@@ -138,12 +146,16 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.task_alt_rounded, size: 44, color: _lime),
+                      child: const Icon(
+                        Icons.lock_reset_rounded,
+                        size: 44,
+                        color: _lime,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Selamat Datang di RutinKu',
+                    'Atur Ulang Password',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 24,
@@ -153,9 +165,13 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Masuk atau daftar untuk menyimpan kebiasaanmu di cloud.',
+                    'Masukkan alamat email yang terdaftar pada akun RutinKu Anda. Kami akan mengirimkan link untuk mengatur ulang password ke email tersebut.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.4),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 28),
                   Container(
@@ -178,55 +194,30 @@ class _AuthScreenState extends State<AuthScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           TextFormField(
-                            key: const Key('auth_email_field'),
+                            key: const Key('forgot_password_email_field'),
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             autofillHints: const [AutofillHints.email],
-                            textInputAction: TextInputAction.next,
+                            textInputAction: TextInputAction.done,
                             enabled: !_isLoading,
-                            decoration: _fieldDecoration('Email', Icons.email_outlined),
+                            onFieldSubmitted: (_) => _handleSendResetLink(),
+                            decoration: _fieldDecoration(
+                              'Email',
+                              Icons.email_outlined,
+                            ),
                             validator: (value) {
                               final v = value?.trim() ?? '';
                               if (v.isEmpty) return 'Email tidak boleh kosong';
-                              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+                              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                  .hasMatch(v)) {
                                 return 'Format email tidak valid';
                               }
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            key: const Key('auth_password_field'),
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            autofillHints: const [AutofillHints.password],
-                            textInputAction: TextInputAction.done,
-                            enabled: !_isLoading,
-                            onFieldSubmitted: (_) => _submit(isRegister: false),
-                            decoration: _fieldDecoration(
-                              'Password',
-                              Icons.lock_outline_rounded,
-                              suffix: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color: const Color(0xFF64748B),
-                                ),
-                                onPressed: () =>
-                                    setState(() => _obscurePassword = !_obscurePassword),
-                              ),
-                            ),
-                            validator: (value) {
-                              final v = value ?? '';
-                              if (v.isEmpty) return 'Password tidak boleh kosong';
-                              if (v.length < 6) return 'Password minimal 6 karakter';
-                              return null;
-                            },
-                          ),
                           const SizedBox(height: 24),
                           ElevatedButton(
-                            key: const Key('auth_login_button'),
+                            key: const Key('forgot_password_submit_button'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _navy,
                               foregroundColor: Colors.white,
@@ -236,37 +227,26 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                               elevation: 0,
                             ),
-                            onPressed: _isLoading ? null : () => _submit(isRegister: false),
+                            onPressed:
+                                _isLoading ? null : _handleSendResetLink,
                             child: _isLoading
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.4,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
                                 : const Text(
-                                    'Login',
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                    'Kirim Link Reset',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            key: const Key('auth_register_button'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _navy,
-                              side: const BorderSide(color: _navy),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: _isLoading ? null : () => _submit(isRegister: true),
-                            child: const Text(
-                              'Register',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
                           ),
                         ],
                       ),
@@ -281,3 +261,4 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
+
