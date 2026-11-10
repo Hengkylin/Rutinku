@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import 'calendar_screen.dart';
 import 'dashboard_screen.dart';
+import 'profile_screen.dart';
 
 final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -14,19 +15,10 @@ class MainScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(bottomNavIndexProvider);
 
-    final screens = [
-      const DashboardScreen(),
-      const CalendarScreen(),
-      const Center(
-        child: Text(
-          'Halaman Statistik/Profil (Segera Hadir)',
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF64748B),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
+    final screens = const [
+      DashboardScreen(),
+      CalendarScreen(),
+      ProfileScreen(),
     ];
 
     return Scaffold(

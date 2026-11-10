@@ -3,6 +3,7 @@ import '../screens/calendar_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_screen.dart';
+import '../screens/profile_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/sync_screen.dart';
 
@@ -23,6 +24,7 @@ class AppRoutes {
     register: (context) => const RegisterScreen(),
     forgotPassword: (context) => const ForgotPasswordScreen(),
     dashboard: (context) => const MainScreen(),
+    profile: (context) => const ProfileScreen(),
     calendar: (context) => const CalendarScreen(),
     sync: (context) => const SyncScreen(),
   };
