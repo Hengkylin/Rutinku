@@ -2,6 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rutinku_flutter/utils/validators.dart';
 
 void main() {
+  group('Validators.normalize & normalizeOptional', () {
+    test('normalize membuang spasi dan mengubah null menjadi string kosong', () {
+      expect(Validators.normalize(null), '');
+      expect(Validators.normalize('  Hengky  '), 'Hengky');
+    });
+
+    test('normalizeOptional mengembalikan null jika kosong setelah di-trim', () {
+      expect(Validators.normalizeOptional(null), isNull);
+      expect(Validators.normalizeOptional('   '), isNull);
+      expect(Validators.normalizeOptional(' 0812345678 '), '0812345678');
+    });
+  });
+
   group('Validators.validateName', () {
     test('mengembalikan pesan error jika nilai null atau kosong', () {
       expect(Validators.validateName(null), isNotNull);

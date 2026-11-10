@@ -95,12 +95,9 @@ class _ProfileFormState extends State<ProfileForm> {
 
     setState(() => _isLoading = true);
     try {
-      final name = _nameController.text.trim();
-      final phone = _phoneController.text.trim();
-
       await _repository.updateProfile(
-        name,
-        phone.isEmpty ? null : phone,
+        Validators.normalize(_nameController.text),
+        Validators.normalizeOptional(_phoneController.text),
       );
 
       if (!mounted) return;

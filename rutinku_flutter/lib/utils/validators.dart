@@ -1,35 +1,44 @@
-/// Kumpulan fungsi statis murni untuk validasi input pengguna.
+/// Kumpulan fungsi statis murni untuk aturan input pengguna
+/// (normalisasi & validasi). Tidak bergantung pada UI maupun data.
 class Validators {
   const Validators._();
 
+  static const int minNameLength = 3;
+  static const int minPhoneDigits = 10;
   static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
 
-  /// Validasi nama pengguna: wajib diisi dan minimal 3 karakter.
+  /// Menormalkan input teks: `null` dianggap string kosong, spasi di
+  /// awal/akhir dibuang.
+  static String normalize(String? value) => value?.trim() ?? '';
+
+  /// Menormalkan input opsional: mengembalikan `null` jika kosong setelah
+  /// di-trim, selain itu mengembalikan nilai yang sudah di-trim.
+  static String? normalizeOptional(String? value) {
+    final normalized = normalize(value);
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  /// Validasi nama pengguna: wajib diisi dan minimal [minNameLength] karakter.
   static String? validateName(String? value) {
-    final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) {
-      return 'Nama wajib diisi';
-    }
-    if (trimmed.length < 3) {
-      return 'Nama minimal 3 karakter';
+    final name = normalize(value);
+    if (name.isEmpty) return 'Nama wajib diisi';
+    if (name.length < minNameLength) {
+      return 'Nama minimal $minNameLength karakter';
     }
     return null;
   }
 
   /// Validasi nomor telepon: opsional, namun jika diisi harus berupa angka
-  /// dan minimal 10 digit.
+  /// dan minimal [minPhoneDigits] digit.
   static String? validatePhone(String? value) {
-    final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    if (!_digitsOnlyRegex.hasMatch(trimmed)) {
+    final phone = normalizeOptional(value);
+    if (phone == null) return null;
+    if (!_digitsOnlyRegex.hasMatch(phone)) {
       return 'Nomor telepon harus berupa angka';
     }
-    if (trimmed.length < 10) {
-      return 'Nomor telepon minimal 10 digit';
+    if (phone.length < minPhoneDigits) {
+      return 'Nomor telepon minimal $minPhoneDigits digit';
     }
     return null;
   }
 }
-
