@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../repositories/profile_repository.dart';
 import '../utils/validators.dart';
+import 'app_snackbar.dart';
 
-/// Komponen Form Profil mandiri yang memisahkan UI dari logika validasi dan data.
+/// Form Profil: hanya mengurus input dan status UI.
+/// Aturan input didelegasikan ke [Validators], request ke [ProfileRepository].
 class ProfileForm extends StatefulWidget {
   const ProfileForm({
     super.key,
@@ -33,6 +35,10 @@ class _ProfileFormState extends State<ProfileForm> {
 
   bool _isLoading = false;
 
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
   @override
   void initState() {
     super.initState();
@@ -43,14 +49,12 @@ class _ProfileFormState extends State<ProfileForm> {
   @override
   void didUpdateWidget(covariant ProfileForm oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialName != oldWidget.initialName &&
-        _nameController.text == (oldWidget.initialName ?? '')) {
-      _nameController.text = widget.initialName ?? '';
-    }
-    if (widget.initialPhone != oldWidget.initialPhone &&
-        _phoneController.text == (oldWidget.initialPhone ?? '')) {
-      _phoneController.text = widget.initialPhone ?? '';
-    }
+    _syncInitialValue(_nameController, oldWidget.initialName, widget.initialName);
+    _syncInitialValue(
+      _phoneController,
+      oldWidget.initialPhone,
+      widget.initialPhone,
+    );
   }
 
   @override
@@ -60,65 +64,57 @@ class _ProfileFormState extends State<ProfileForm> {
     super.dispose();
   }
 
-  InputDecoration _fieldDecoration({
-    required String label,
-    required String hint,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF64748B)),
-      filled: true,
-      fillColor: const Color(0xFFF1F5F9),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _navy, width: 1.6),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade400),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade600, width: 1.6),
-      ),
-    );
+  /// Memperbarui isi field saat nilai awal berubah, selama pengguna belum
+  /// mengubah isi field tersebut.
+  void _syncInitialValue(
+    TextEditingController controller,
+    String? oldValue,
+    String? newValue,
+  ) {
+    if (newValue != oldValue && controller.text == (oldValue ?? '')) {
+      controller.text = newValue ?? '';
+    }
   }
 
-  Future<void> _handleSubmit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  // ---------------------------------------------------------------------------
+  // Status UI & aksi
+  // ---------------------------------------------------------------------------
 
-    setState(() => _isLoading = true);
+  void _setLoading(bool value) {
+    if (mounted) setState(() => _isLoading = value);
+  }
+
+  bool _validateForm() => _formKey.currentState?.validate() ?? false;
+
+  Future<void> _handleSubmit() async {
+    if (!_validateForm()) return;
+
+    _setLoading(true);
     try {
       await _repository.updateProfile(
         Validators.normalize(_nameController.text),
         Validators.normalizeOptional(_phoneController.text),
       );
-
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      widget.onSaveSuccess?.call();
+      _setLoading(false);
+      if (mounted) widget.onSaveSuccess?.call();
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      _setLoading(false);
+      _showError(e);
     }
   }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      error.toString().replaceFirst('Exception: ', ''),
+      isError: true,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -127,63 +123,121 @@ class _ProfileFormState extends State<ProfileForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
-            key: const Key('profile_name_field'),
-            controller: _nameController,
-            enabled: !_isLoading,
-            textInputAction: TextInputAction.next,
-            decoration: _fieldDecoration(
-              label: 'Nama Lengkap',
-              hint: 'Masukkan minimal 3 karakter',
-              icon: Icons.person_outline_rounded,
-            ),
-            validator: Validators.validateName,
-          ),
+          _buildNameField(),
           const SizedBox(height: 16),
-          TextFormField(
-            key: const Key('profile_phone_field'),
-            controller: _phoneController,
-            enabled: !_isLoading,
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _handleSubmit(),
-            decoration: _fieldDecoration(
-              label: 'Nomor Telepon (Opsional)',
-              hint: 'Contoh: 081234567890',
-              icon: Icons.phone_outlined,
-            ),
-            validator: Validators.validatePhone,
-          ),
+          _buildPhoneField(),
           const SizedBox(height: 24),
-          ElevatedButton(
-            key: const Key('profile_save_button'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _navy,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              elevation: 0,
-            ),
-            onPressed: _isLoading ? null : _handleSubmit,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Simpan',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-          ),
+          _buildSaveButton(),
         ],
       ),
     );
   }
-}
 
+  Widget _buildNameField() {
+    return _buildTextField(
+      fieldKey: const Key('profile_name_field'),
+      controller: _nameController,
+      label: 'Nama Lengkap',
+      hint: 'Masukkan minimal ${Validators.minNameLength} karakter',
+      icon: Icons.person_outline_rounded,
+      validator: Validators.validateName,
+      textInputAction: TextInputAction.next,
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return _buildTextField(
+      fieldKey: const Key('profile_phone_field'),
+      controller: _phoneController,
+      label: 'Nomor Telepon (Opsional)',
+      hint: 'Contoh: 081234567890',
+      icon: Icons.phone_outlined,
+      validator: Validators.validatePhone,
+      keyboardType: TextInputType.phone,
+      textInputAction: TextInputAction.done,
+      onFieldSubmitted: (_) => _handleSubmit(),
+    );
+  }
+
+  /// Satu-satunya pembuat [TextFormField] di form ini agar gaya & perilaku
+  /// field tidak diduplikasi.
+  Widget _buildTextField({
+    required Key fieldKey,
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required FormFieldValidator<String> validator,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onFieldSubmitted,
+  }) {
+    return TextFormField(
+      key: fieldKey,
+      controller: controller,
+      enabled: !_isLoading,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onFieldSubmitted,
+      decoration: _fieldDecoration(label: label, hint: hint, icon: icon),
+      validator: validator,
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    OutlineInputBorder border(BorderSide side) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: side,
+        );
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: const Color(0xFF64748B)),
+      filled: true,
+      fillColor: const Color(0xFFF1F5F9),
+      border: border(BorderSide.none),
+      focusedBorder: border(const BorderSide(color: _navy, width: 1.6)),
+      errorBorder: border(BorderSide(color: Colors.red.shade400)),
+      focusedErrorBorder:
+          border(BorderSide(color: Colors.red.shade600, width: 1.6)),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return ElevatedButton(
+      key: const Key('profile_save_button'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _navy,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 0,
+      ),
+      onPressed: _isLoading ? null : _handleSubmit,
+      child: _isLoading ? _buildLoadingIndicator() : _buildSaveLabel(),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CircularProgressIndicator(
+        strokeWidth: 2.4,
+        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildSaveLabel() {
+    return const Text(
+      'Simpan',
+      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+    );
+  }
+}

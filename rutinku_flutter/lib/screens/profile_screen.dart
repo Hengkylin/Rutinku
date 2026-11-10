@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../repositories/profile_repository.dart';
+import '../widgets/app_snackbar.dart';
 import '../widgets/profile_form.dart';
 
 /// Halaman Profil pengguna yang mendelegasikan logika form sepenuhnya ke [ProfileForm].
@@ -48,15 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _onSaveSuccess() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Profil berhasil diperbarui!'),
-        backgroundColor: const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    showAppSnackBar(context, 'Profil berhasil diperbarui!');
   }
 
   @override
