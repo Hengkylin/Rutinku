@@ -2,8 +2,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Layer Data profil pengguna: hanya bertanggung jawab atas request ke
-/// Supabase (tabel `users`) dan cache lokal. Validasi input dilakukan di
-/// layer UI menggunakan `Validators` sebelum repository dipanggil.
+/// Supabase (tabel `users`) dan cache lokal. Validasi & normalisasi input
+/// dilakukan di layer UI menggunakan `Validators` sebelum repository dipanggil.
 class ProfileRepository {
   static const String tableName = 'users';
   static const String _prefNameKey = 'rutinku_profile_name';
@@ -26,14 +26,8 @@ class ProfileRepository {
       final userId = _requireUserId();
       await _sendUpdateRequest(userId, name, phone);
       await _cacheProfile(name, phone);
-    } on AuthException catch (e) {
-      throw Exception('Gagal memperbarui profil (Auth): ${e.message}');
-    } on PostgrestException catch (e) {
-      throw Exception('Gagal memperbarui profil di database: ${e.message}');
-    } on Exception {
-      rethrow;
     } catch (e) {
-      throw Exception('Gagal memperbarui profil pengguna: $e');
+      throw _toProfileException(e);
     }
   }
 
@@ -91,5 +85,18 @@ class ProfileRepository {
     } else {
       await prefs.setString(_prefPhoneKey, phone);
     }
+  }
+
+  /// Mengubah error mentah (Auth/Postgrest/lainnya) menjadi [Exception]
+  /// dengan pesan yang bisa langsung ditampilkan ke pengguna.
+  Exception _toProfileException(Object error) {
+    return switch (error) {
+      AuthException(:final message) =>
+        Exception('Gagal memperbarui profil (Auth): $message'),
+      PostgrestException(:final message) =>
+        Exception('Gagal memperbarui profil di database: $message'),
+      Exception() => error,
+      _ => Exception('Gagal memperbarui profil pengguna: $error'),
+    };
   }
 }
