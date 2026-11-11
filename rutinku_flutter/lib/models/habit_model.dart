@@ -3,10 +3,14 @@ import 'package:intl/intl.dart';
 
 class HabitRecord {
   final String date; // Format: yyyy-MM-dd
-  final String status; // 'completed', 'skipped', 'rest'
+  final String status; // 'completed', 'skipped', 'rest', 'pending'
   final String? mood;
   final String? note;
   final String? momentImagePath;
+
+  /// Progres angka pada tanggal ini (mis. 3 gelas). Dipakai jika
+  /// `HabitModel.targetValue > 1`.
+  final int currentValue;
 
   HabitRecord({
     required this.date,
@@ -14,6 +18,7 @@ class HabitRecord {
     this.mood,
     this.note,
     this.momentImagePath,
+    this.currentValue = 0,
   });
 
   HabitRecord copyWith({
@@ -23,6 +28,7 @@ class HabitRecord {
     String? note,
     String? momentImagePath,
     bool clearMomentImagePath = false,
+    int? currentValue,
   }) {
     return HabitRecord(
       date: date ?? this.date,
@@ -32,6 +38,7 @@ class HabitRecord {
       momentImagePath: clearMomentImagePath
           ? null
           : (momentImagePath ?? this.momentImagePath),
+      currentValue: currentValue ?? this.currentValue,
     );
   }
 
@@ -41,6 +48,7 @@ class HabitRecord {
     'mood': mood,
     'note': note,
     'momentImagePath': momentImagePath,
+    'currentValue': currentValue,
   };
 
   factory HabitRecord.fromMap(Map<String, dynamic> map) => HabitRecord(
@@ -49,6 +57,8 @@ class HabitRecord {
     mood: map['mood'] as String?,
     note: map['note'] as String?,
     momentImagePath: map['momentImagePath'] as String?,
+    // Data JSON lama belum punya field ini.
+    currentValue: (map['currentValue'] as num?)?.toInt() ?? 0,
   );
 
   @override
@@ -60,7 +70,8 @@ class HabitRecord {
           status == other.status &&
           mood == other.mood &&
           note == other.note &&
-          momentImagePath == other.momentImagePath;
+          momentImagePath == other.momentImagePath &&
+          currentValue == other.currentValue;
 
   @override
   int get hashCode =>
@@ -68,7 +79,8 @@ class HabitRecord {
       status.hashCode ^
       mood.hashCode ^
       note.hashCode ^
-      momentImagePath.hashCode;
+      momentImagePath.hashCode ^
+      currentValue.hashCode;
 }
 
 class HabitModel {
@@ -79,6 +91,12 @@ class HabitModel {
   final String? category;
   final String? reminderTime;
 
+  /// Target angka harian. `1` = kebiasaan biasa (cukup check-in sekali).
+  final int targetValue;
+
+  /// Satuan target, mis. "gelas", "menit", "halaman".
+  final String? unit;
+
   HabitModel({
     required this.id,
     required this.title,
@@ -86,20 +104,26 @@ class HabitModel {
     this.parentHabitId,
     this.category,
     this.reminderTime,
+    this.targetValue = 1,
+    this.unit,
   });
 
+  static String _dateKey(DateTime date) =>
+      DateFormat('yyyy-MM-dd').format(date);
+
+  /// Selesai jika: target 1 → status record 'completed';
+  /// target > 1 → `currentValue` record sudah mencapai target.
   bool isCompletedOn(DateTime date) {
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    return records.any((r) => r.date == dateStr && r.status == 'completed');
+    final record = getRecordOn(date);
+    if (record == null) return false;
+    if (targetValue <= 1) return record.status == 'completed';
+    return record.currentValue >= targetValue;
   }
 
-  bool isRestOn(DateTime date) {
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    return records.any((r) => r.date == dateStr && r.status == 'rest');
-  }
+  bool isRestOn(DateTime date) => getRecordOn(date)?.status == 'rest';
 
   HabitRecord? getRecordOn(DateTime date) {
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final dateStr = _dateKey(date);
     for (final r in records) {
       if (r.date == dateStr) return r;
     }
@@ -109,6 +133,32 @@ class HabitModel {
   HabitRecord? get todayRecord => getRecordOn(DateTime.now());
 
   bool get isCompletedToday => isCompletedOn(DateTime.now());
+
+  /// Mengembalikan salinan habit dengan progres tanggal [date] bertambah 1.
+  /// Record baru dibuat berstatus 'pending'; status otomatis menjadi
+  /// 'completed' begitu `currentValue >= targetValue`.
+  /// Dipakai bersama oleh notifier (optimistic UI) dan repository (persisten).
+  HabitModel incrementProgress(DateTime date) {
+    final dateStr = _dateKey(date);
+    final updatedRecords = List<HabitRecord>.from(records);
+    final index = updatedRecords.indexWhere((r) => r.date == dateStr);
+
+    var record = index == -1
+        ? HabitRecord(date: dateStr, status: 'pending', currentValue: 1)
+        : updatedRecords[index].copyWith(
+            currentValue: updatedRecords[index].currentValue + 1,
+          );
+    if (record.currentValue >= targetValue) {
+      record = record.copyWith(status: 'completed');
+    }
+
+    if (index == -1) {
+      updatedRecords.add(record);
+    } else {
+      updatedRecords[index] = record;
+    }
+    return copyWith(records: updatedRecords);
+  }
 
   int get streakCount {
     int streak = 0;
@@ -146,6 +196,9 @@ class HabitModel {
     bool clearParentHabitId = false,
     String? category,
     String? reminderTime,
+    int? targetValue,
+    String? unit,
+    bool clearUnit = false,
   }) {
     return HabitModel(
       id: id ?? this.id,
@@ -156,6 +209,8 @@ class HabitModel {
           : (parentHabitId ?? this.parentHabitId),
       category: category ?? this.category,
       reminderTime: reminderTime ?? this.reminderTime,
+      targetValue: targetValue ?? this.targetValue,
+      unit: clearUnit ? null : (unit ?? this.unit),
     );
   }
 
@@ -167,6 +222,8 @@ class HabitModel {
       'parentHabitId': parentHabitId,
       'category': category,
       'reminderTime': reminderTime,
+      'targetValue': targetValue,
+      'unit': unit,
     };
   }
 
@@ -185,6 +242,9 @@ class HabitModel {
       parentHabitId: map['parentHabitId'] as String?,
       category: map['category'] as String?,
       reminderTime: map['reminderTime'] as String?,
+      // Fallback untuk data JSON lama yang belum memiliki field ini.
+      targetValue: (map['targetValue'] as num?)?.toInt() ?? 1,
+      unit: map['unit'] as String?,
     );
   }
 

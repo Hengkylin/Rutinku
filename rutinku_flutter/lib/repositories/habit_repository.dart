@@ -74,6 +74,8 @@ class HabitRepository {
     String? category,
     String? reminderTime,
     String? parentHabitId,
+    int targetValue = 1,
+    String? unit,
   }) async {
     final habits = await fetchHabits();
     final newHabit = HabitModel(
@@ -82,6 +84,8 @@ class HabitRepository {
       category: category,
       reminderTime: reminderTime,
       parentHabitId: parentHabitId,
+      targetValue: targetValue,
+      unit: unit,
     );
     habits.add(newHabit);
     await _saveHabitsToStorage(habits);
@@ -95,6 +99,8 @@ class HabitRepository {
     String category,
     String reminderTime, {
     String? parentHabitId,
+    int targetValue = 1,
+    String? unit,
   }) async {
     final habits = await fetchHabits();
     final index = habits.indexWhere((h) => h.id == id);
@@ -105,6 +111,9 @@ class HabitRepository {
         reminderTime: reminderTime,
         parentHabitId: parentHabitId,
         clearParentHabitId: parentHabitId == null,
+        targetValue: targetValue,
+        unit: unit,
+        clearUnit: unit == null,
       );
       habits[index] = updatedHabit;
       await _saveHabitsToStorage(habits);
@@ -140,6 +149,16 @@ class HabitRepository {
     }
   }
 
+  // UPDATE (Progressive Habit): Menambah progres angka harian (+1) dan simpan ke Storage
+  Future<void> incrementHabitProgress(String id, DateTime date) async {
+    final habits = await fetchHabits();
+    final index = habits.indexWhere((h) => h.id == id);
+    if (index == -1) return;
+
+    habits[index] = habits[index].incrementProgress(date);
+    await _saveHabitsToStorage(habits);
+  }
+
   // UPDATE (Mood & Recovery Record): Mengubah status, mood, dan catatan refleksi
   Future<void> updateRecordDetails(
     String id,
@@ -158,13 +177,12 @@ class HabitRepository {
       final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
 
       if (recordIndex != -1) {
-        final existing = updatedRecords[recordIndex];
-        updatedRecords[recordIndex] = HabitRecord(
-          date: dateStr,
-          status: status ?? existing.status,
-          mood: mood ?? existing.mood,
-          note: note ?? existing.note,
-          momentImagePath: momentImagePath ?? existing.momentImagePath,
+        // copyWith agar field lain (mis. currentValue) tidak hilang
+        updatedRecords[recordIndex] = updatedRecords[recordIndex].copyWith(
+          status: status,
+          mood: mood,
+          note: note,
+          momentImagePath: momentImagePath,
         );
       } else {
         updatedRecords.add(

@@ -57,6 +57,9 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
             _categoryController.text.trim(),
             _reminderController.text.trim(),
             parentHabitId: _selectedParentHabitId,
+            // Form belum punya field target; pertahankan nilai tersimpan.
+            targetValue: widget.habit.targetValue,
+            unit: widget.habit.unit,
           );
       if (mounted) Navigator.pop(context);
     } catch (e) {

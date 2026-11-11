@@ -60,8 +60,11 @@ void main() {
           'mood': 'happy',
           'note': '10 halaman',
           'momentImagePath': null,
+          'currentValue': 0,
         },
       ]);
+      expect(map['targetValue'], 1);
+      expect(map['unit'], isNull);
       expect(map['parentHabitId'], 'parent-1');
       expect(map['category'], 'Belajar');
       expect(map['reminderTime'], '20:00');

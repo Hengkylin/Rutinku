@@ -32,6 +32,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     String? category,
     String? reminderTime,
     String? parentHabitId,
+    int targetValue = 1,
+    String? unit,
   }) async {
     final previousState = state;
     state = const AsyncValue.loading();
@@ -41,6 +43,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         category: category,
         reminderTime: reminderTime,
         parentHabitId: parentHabitId,
+        targetValue: targetValue,
+        unit: unit,
       );
       state = await AsyncValue.guard(() => _repository.fetchHabits());
     } catch (e) {
@@ -56,6 +60,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     String newCategory,
     String newReminder, {
     String? parentHabitId,
+    int targetValue = 1,
+    String? unit,
   }) async {
     final previousState = state;
     state = const AsyncValue.loading();
@@ -66,6 +72,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         newCategory,
         newReminder,
         parentHabitId: parentHabitId,
+        targetValue: targetValue,
+        unit: unit,
       );
       state = await AsyncValue.guard(() => _repository.fetchHabits());
     } catch (e) {
@@ -111,6 +119,29 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     }
   }
 
+  // FITUR: Progressive Habit Tracking (+1 progres angka harian)
+  Future<void> incrementHabitProgress(String id, DateTime date) async {
+    final previousState = state;
+    final currentList = state.value;
+    if (currentList == null) return;
+
+    final habitIndex = currentList.indexWhere((h) => h.id == id);
+    if (habitIndex == -1) return;
+
+    // Optimistic UI Update: logika +1 & auto-complete ada di HabitModel,
+    // dipakai sama persis oleh repository saat menyimpan.
+    final updatedList = List<HabitModel>.from(currentList);
+    updatedList[habitIndex] = currentList[habitIndex].incrementProgress(date);
+    state = AsyncValue.data(updatedList);
+
+    try {
+      await _repository.incrementHabitProgress(id, date);
+    } catch (e) {
+      state = previousState;
+      throw Exception('Gagal memperbarui progres rutinitas');
+    }
+  }
+
   // FITUR: Update Detail Catatan / Status Jurnal (Mood & Recovery)
   Future<void> updateHabitRecord(
     String id,
@@ -133,13 +164,12 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
 
     if (recordIndex != -1) {
-      final existing = updatedRecords[recordIndex];
-      updatedRecords[recordIndex] = HabitRecord(
-        date: dateStr,
-        status: status ?? existing.status,
-        mood: mood ?? existing.mood,
-        note: note ?? existing.note,
-        momentImagePath: momentImagePath ?? existing.momentImagePath,
+      // copyWith agar field lain (mis. currentValue) tidak hilang
+      updatedRecords[recordIndex] = updatedRecords[recordIndex].copyWith(
+        status: status,
+        mood: mood,
+        note: note,
+        momentImagePath: momentImagePath,
       );
     } else {
       updatedRecords.add(
