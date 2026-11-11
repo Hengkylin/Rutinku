@@ -29,43 +29,72 @@ class HabitTargetFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          flex: 2,
-          child: _buildField(
-            label: 'Target harian',
-            child: TextFormField(
-              key: const Key('habit_target_field'),
-              controller: targetController,
-              enabled: enabled,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(4),
-              ],
-              decoration: decoration(hintText: '1'),
-              validator: Validators.validateTargetValue,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildField(
+                label: 'Target harian',
+                child: TextFormField(
+                  key: const Key('habit_target_field'),
+                  controller: targetController,
+                  enabled: enabled,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                  ],
+                  decoration: _withWrappingError(decoration(hintText: '8')),
+                  validator: Validators.validateTargetValue,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: _buildField(
+                label: 'Satuan (opsional)',
+                child: TextFormField(
+                  key: const Key('habit_unit_field'),
+                  controller: unitController,
+                  enabled: enabled,
+                  decoration: _withWrappingError(
+                    decoration(hintText: 'gelas, menit, halaman'),
+                  ),
+                  validator: Validators.validateUnit,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 3,
-          child: _buildField(
-            label: 'Satuan (opsional)',
-            child: TextFormField(
-              key: const Key('habit_unit_field'),
-              controller: unitController,
-              enabled: enabled,
-              decoration: decoration(hintText: 'gelas, menit, halaman'),
+        const SizedBox(height: 8),
+        // Menjelaskan kapan kartu memakai tombol [+] agar jumlah tidak
+        // tertukar diisi di kolom Satuan.
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Isi Target lebih dari 1 untuk mencatat progres dengan tombol [+], '
+                'mis. target 8 dengan satuan "gelas". Target 1 = cukup centang sekali.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
   }
+
+  /// Kolom berdampingan cukup sempit; izinkan pesan error lebih dari 1 baris.
+  static InputDecoration _withWrappingError(InputDecoration decoration) =>
+      decoration.copyWith(errorMaxLines: 3);
 
   Widget _buildField({required String label, required Widget child}) {
     return Column(

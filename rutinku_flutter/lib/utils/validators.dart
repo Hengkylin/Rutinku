@@ -12,6 +12,7 @@ class Validators {
   /// "Email OTP Length" di Supabase Dashboard.
   static const int otpLength = 6;
   static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
+  static final RegExp _startsWithDigitRegex = RegExp(r'^\d');
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   /// Menormalkan input teks: `null` dianggap string kosong, spasi di
@@ -83,6 +84,19 @@ class Validators {
     if (code.isEmpty) return 'Kode wajib diisi';
     if (!_digitsOnlyRegex.hasMatch(code)) return 'Kode harus berupa angka';
     if (code.length != otpLength) return 'Kode harus $otpLength digit';
+    return null;
+  }
+
+  /// Validasi satuan target (opsional): harus berupa teks seperti "gelas".
+  /// Ditolak jika diawali angka (mis. "8" atau "8 gelas"), karena jumlahnya
+  /// seharusnya diisi di Target harian; jika tidak, target tetap 1 dan
+  /// tombol [+] tidak muncul di kartu.
+  static String? validateUnit(String? value) {
+    final unit = normalizeOptional(value);
+    if (unit == null) return null;
+    if (_startsWithDigitRegex.hasMatch(unit)) {
+      return 'Isi teks, mis. gelas. Jumlahnya diisi di Target harian.';
+    }
     return null;
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rutinku_flutter/notifiers/habit_notifier.dart';
 import 'package:rutinku_flutter/repositories/habit_repository.dart';
 import 'package:rutinku_flutter/widgets/add_habit_bottom_sheet.dart';
+import 'package:rutinku_flutter/widgets/edit_habit_bottom_sheet.dart';
 import 'package:rutinku_flutter/widgets/habit_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -120,6 +121,92 @@ void main() {
       await tester.pump();
 
       expect(find.text('Target minimal 1'), findsOneWidget);
+    });
+
+    testWidgets(
+        'angka di kolom Satuan (target tetap 1) ditolak dan tidak tersimpan',
+        (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(body: AddHabitBottomSheet()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Petunjuk kapan tombol [+] muncul selalu terlihat di form.
+      expect(find.textContaining('tombol [+]'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'Minum Air');
+      await tester.enterText(find.byKey(const Key('habit_unit_field')), '8');
+      await tester.ensureVisible(find.text('Simpan'));
+      await tester.tap(find.text('Simpan'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('diisi di Target harian'), findsOneWidget);
+      final habits =
+          (await tester.runAsync(() => HabitRepository().fetchHabits()))!;
+      expect(habits, isEmpty);
+    });
+  });
+
+  group('EditHabitBottomSheet - memperbaiki target & satuan', () {
+    testWidgets('target 8 + satuan gelas tersimpan sehingga kartu memakai [+]',
+        (tester) async {
+      // Kondisi dari laporan: target 1, satuan "8".
+      await tester.runAsync(
+        () => HabitRepository().addHabit('Minum Air', unit: '8'),
+      );
+      final habit =
+          (await tester.runAsync(() => HabitRepository().fetchHabits()))!
+              .single;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => Scaffold(
+                        body: EditHabitBottomSheet(habit: habit),
+                      ),
+                    ),
+                  ),
+                  child: const Text('BUKA'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('BUKA'));
+      await tester.pumpAndSettle();
+
+      final targetField = find.byKey(const Key('habit_target_field'));
+      final unitField = find.byKey(const Key('habit_unit_field'));
+      final save = find.text('Simpan perubahan');
+
+      // Menyimpan apa adanya ditolak karena satuan berisi angka.
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('diisi di Target harian'), findsOneWidget);
+
+      await tester.enterText(targetField, '8');
+      await tester.enterText(unitField, 'gelas');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      final saved =
+          (await tester.runAsync(() => HabitRepository().fetchHabits()))!
+              .single;
+      expect(saved.targetValue, 8);
+      expect(saved.unit, 'gelas');
+      expect(find.text('BUKA'), findsOneWidget); // sheet tertutup
     });
   });
 }

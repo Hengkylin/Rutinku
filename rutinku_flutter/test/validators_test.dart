@@ -100,6 +100,18 @@ void main() {
     });
   });
 
+  group('Validators.validateUnit', () {
+    test('opsional; teks valid, angka ditolak (angka diisi di Target harian)', () {
+      expect(Validators.validateUnit(null), isNull);
+      expect(Validators.validateUnit('   '), isNull);
+      expect(Validators.validateUnit('gelas'), isNull);
+      expect(Validators.validateUnit(' halaman '), isNull);
+      expect(Validators.validateUnit('8'), isNotNull);
+      expect(Validators.validateUnit('8 gelas'), isNotNull);
+      expect(Validators.validateUnit('8'), contains('Target harian'));
+    });
+  });
+
   group('Validators.validateTargetValue', () {
     test('wajib diisi, harus angka bulat, dan minimal 1', () {
       expect(Validators.validateTargetValue(''), 'Target wajib diisi');
