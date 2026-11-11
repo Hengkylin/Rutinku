@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'app.dart';
 import 'services/notification_service.dart';
 
@@ -19,9 +20,5 @@ Future<void> main() async {
   await notificationService.requestPermission();
 
   // Bungkus App() dengan ProviderScope
-  runApp(
-    const ProviderScope(
-      child: App(),
-    ),
-  );
+  runApp(const ProviderScope(child: App()));
 }

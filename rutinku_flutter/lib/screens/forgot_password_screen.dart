@@ -3,6 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
+import '../widgets/app_snackbar.dart';
+import '../widgets/auth_header.dart';
+import '../widgets/auth_input_decoration.dart';
 
 /// Halaman Lupa Password untuk mengirim tautan reset password via Supabase Auth.
 class ForgotPasswordScreen extends StatefulWidget {
@@ -16,7 +20,6 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   static const _navy = Color(0xFF1E293B);
-  static const _lime = Color(0xFFD9F99D);
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -31,18 +34,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _showMessage(String message, {bool isError = true}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            isError ? Colors.red.shade600 : const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
+  void _showMessage(String message, {bool isError = true}) =>
+      showAppSnackBar(context, message, isError: isError);
 
   void _handleBack() {
     if (Navigator.of(context).canPop()) {
@@ -57,14 +50,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final email = _emailController.text.trim();
-      await _auth.resetPasswordForEmail(email);
+      await _auth.resetPassword(Validators.normalize(_emailController.text));
 
       if (!mounted) return;
-      _showMessage(
-        'Link reset password telah dikirim! Silakan cek email Anda.',
-        isError: false,
-      );
+      _showMessage('Link reset telah dikirim ke email Anda', isError: false);
     } on AuthException catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (e) {
@@ -74,30 +63,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: const Color(0xFF64748B)),
-      filled: true,
-      fillColor: const Color(0xFFF1F5F9),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _navy, width: 1.6),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade400),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade600, width: 1.6),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,46 +97,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: _navy,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _navy.withValues(alpha: 0.25),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.lock_reset_rounded,
-                        size: 44,
-                        color: _lime,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Atur Ulang Password',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: _navy,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Masukkan alamat email yang terdaftar pada akun RutinKu Anda. Kami akan mengirimkan link untuk mengatur ulang password ke email tersebut.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                      height: 1.5,
-                    ),
+                  const AuthHeader(
+                    icon: Icons.lock_reset_rounded,
+                    title: 'Atur Ulang Password',
+                    subtitle:
+                        'Masukkan alamat email yang terdaftar pada akun RutinKu Anda. Kami akan mengirimkan link untuk mengatur ulang password ke email tersebut.',
                   ),
                   const SizedBox(height: 28),
                   Container(
@@ -201,19 +131,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             textInputAction: TextInputAction.done,
                             enabled: !_isLoading,
                             onFieldSubmitted: (_) => _handleSendResetLink(),
-                            decoration: _fieldDecoration(
+                            decoration: authInputDecoration(
                               'Email',
                               Icons.email_outlined,
                             ),
-                            validator: (value) {
-                              final v = value?.trim() ?? '';
-                              if (v.isEmpty) return 'Email tidak boleh kosong';
-                              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                  .hasMatch(v)) {
-                                return 'Format email tidak valid';
-                              }
-                              return null;
-                            },
+                            validator: Validators.validateEmail,
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(

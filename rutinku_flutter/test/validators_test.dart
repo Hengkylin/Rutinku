@@ -60,6 +60,36 @@ void main() {
     });
   });
 
+  group('Validators.validateEmail', () {
+    test('wajib diisi dan harus berformat email', () {
+      expect(Validators.validateEmail(null), 'Email tidak boleh kosong');
+      expect(Validators.validateEmail('   '), 'Email tidak boleh kosong');
+      expect(Validators.validateEmail('hengky'), 'Format email tidak valid');
+      expect(Validators.validateEmail('a@b'), 'Format email tidak valid');
+      expect(Validators.validateEmail('  user@mail.com  '), isNull);
+    });
+  });
+
+  group('Validators.validatePassword & validatePasswordConfirmation', () {
+    test('password wajib diisi dan minimal 6 karakter', () {
+      expect(Validators.validatePassword(''), 'Password tidak boleh kosong');
+      expect(Validators.validatePassword('12345'), 'Password minimal 6 karakter');
+      expect(Validators.validatePassword('123456'), isNull);
+    });
+
+    test('konfirmasi wajib diisi dan harus sama dengan password', () {
+      expect(
+        Validators.validatePasswordConfirmation('', 'rahasia1'),
+        'Konfirmasi password tidak boleh kosong',
+      );
+      expect(
+        Validators.validatePasswordConfirmation('rahasia2', 'rahasia1'),
+        'Password dan Konfirmasi Password harus cocok',
+      );
+      expect(Validators.validatePasswordConfirmation('rahasia1', 'rahasia1'), isNull);
+    });
+  });
+
   group('Validators.validateTargetValue', () {
     test('wajib diisi, harus angka bulat, dan minimal 1', () {
       expect(Validators.validateTargetValue(''), 'Target wajib diisi');

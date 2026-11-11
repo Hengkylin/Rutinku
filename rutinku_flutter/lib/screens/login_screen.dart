@@ -3,6 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
+import '../widgets/app_snackbar.dart';
+import '../widgets/auth_input_decoration.dart';
 import 'main_screen.dart';
 
 /// Halaman Login berbasis Supabase Auth.
@@ -35,18 +38,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _showMessage(String message, {bool isError = true}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            isError ? Colors.red.shade600 : const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
+  void _showMessage(String message, {bool isError = true}) =>
+      showAppSnackBar(context, message, isError: isError);
 
   void _goToDashboard() {
     Navigator.of(context).pushAndRemoveUntil(
@@ -60,10 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
-
-      final response = await _auth.login(email, password);
+      final response = await _auth.login(
+        Validators.normalize(_emailController.text),
+        _passwordController.text,
+      );
 
       if (!mounted) return;
       if (response.session != null) {
@@ -80,35 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration(
-    String label,
-    IconData icon, {
-    Widget? suffix,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: const Color(0xFF64748B)),
-      suffixIcon: suffix,
-      filled: true,
-      fillColor: const Color(0xFFF1F5F9),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _navy, width: 1.6),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade400),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade600, width: 1.6),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,19 +156,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             autofillHints: const [AutofillHints.email],
                             textInputAction: TextInputAction.next,
                             enabled: !_isLoading,
-                            decoration: _fieldDecoration(
+                            decoration: authInputDecoration(
                               'Email',
                               Icons.email_outlined,
                             ),
-                            validator: (value) {
-                              final v = value?.trim() ?? '';
-                              if (v.isEmpty) return 'Email tidak boleh kosong';
-                              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                  .hasMatch(v)) {
-                                return 'Format email tidak valid';
-                              }
-                              return null;
-                            },
+                            validator: Validators.validateEmail,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -215,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             textInputAction: TextInputAction.done,
                             enabled: !_isLoading,
                             onFieldSubmitted: (_) => _handleLogin(),
-                            decoration: _fieldDecoration(
+                            decoration: authInputDecoration(
                               'Password',
                               Icons.lock_outline_rounded,
                               suffix: IconButton(
@@ -230,16 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             ),
-                            validator: (value) {
-                              final v = value ?? '';
-                              if (v.isEmpty) {
-                                return 'Password tidak boleh kosong';
-                              }
-                              if (v.length < 6) {
-                                return 'Password minimal 6 karakter';
-                              }
-                              return null;
-                            },
+                            validator: Validators.validatePassword,
                           ),
                           const SizedBox(height: 8),
                           Align(

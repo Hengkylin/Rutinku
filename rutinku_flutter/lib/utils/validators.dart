@@ -6,7 +6,9 @@ class Validators {
   static const int minNameLength = 3;
   static const int minPhoneDigits = 10;
   static const int minTargetValue = 1;
+  static const int minPasswordLength = 6;
   static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
+  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   /// Menormalkan input teks: `null` dianggap string kosong, spasi di
   /// awal/akhir dibuang.
@@ -40,6 +42,33 @@ class Validators {
     if (phone.length < minPhoneDigits) {
       return 'Nomor telepon minimal $minPhoneDigits digit';
     }
+    return null;
+  }
+
+  /// Validasi email: wajib diisi (setelah di-trim) dan berformat email.
+  static String? validateEmail(String? value) {
+    final email = normalize(value);
+    if (email.isEmpty) return 'Email tidak boleh kosong';
+    if (!_emailRegex.hasMatch(email)) return 'Format email tidak valid';
+    return null;
+  }
+
+  /// Validasi password: wajib diisi dan minimal [minPasswordLength] karakter.
+  /// Password tidak di-trim karena spasi bisa jadi bagian dari password.
+  static String? validatePassword(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) return 'Password tidak boleh kosong';
+    if (password.length < minPasswordLength) {
+      return 'Password minimal $minPasswordLength karakter';
+    }
+    return null;
+  }
+
+  /// Validasi konfirmasi password: wajib diisi dan harus sama dengan
+  /// [password].
+  static String? validatePasswordConfirmation(String? value, String password) {
+    if ((value ?? '').isEmpty) return 'Konfirmasi password tidak boleh kosong';
+    if (value != password) return 'Password dan Konfirmasi Password harus cocok';
     return null;
   }
 

@@ -3,6 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
+import '../widgets/app_snackbar.dart';
+import '../widgets/auth_input_decoration.dart';
 import 'main_screen.dart';
 
 /// Halaman Registrasi akun baru berbasis Supabase Auth.
@@ -38,15 +41,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _showMessage(String message, {bool isError = true}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            isError ? Colors.red.shade600 : const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+  void _showMessage(String message, {bool isError = true}) =>
+      showAppSnackBar(context, message, isError: isError);
+
+  /// Dialog wajib (tidak bisa ditutup dengan tap di luar) yang meminta
+  /// pengguna memverifikasi email sebelum login.
+  Future<void> _showVerifyEmailDialog(String email) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('register_verify_email_dialog'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(
+          Icons.mark_email_unread_outlined,
+          size: 40,
+          color: _navy,
+        ),
+        title: const Text('Cek Email Anda'),
+        content: Text(
+          'Silakan cek email Anda untuk verifikasi. Kami telah mengirim link '
+          'verifikasi ke $email. Setelah akun terverifikasi, silakan login.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            key: const Key('register_verify_email_ok'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _navy,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Ke Halaman Login'),
+          ),
+        ],
       ),
     );
   }
@@ -70,21 +102,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
-
-      final response = await _auth.register(email, password);
+      final email = Validators.normalize(_emailController.text);
+      final response = await _auth.register(email, _passwordController.text);
 
       if (!mounted) return;
-      if (response.session != null) {
-        _goToDashboard();
+      if (response.session == null) {
+        // "Confirm email" aktif di Supabase: akun belum bisa dipakai sebelum
+        // diverifikasi, jadi jangan masuk ke Beranda.
+        setState(() => _isLoading = false); // request selesai; hentikan spinner
+        await _showVerifyEmailDialog(email);
+        if (mounted) _goToLogin();
       } else {
-        // Jika verifikasi email diaktifkan di Supabase.
-        _showMessage(
-          'Registrasi berhasil! Silakan cek email Anda untuk verifikasi, lalu login.',
-          isError: false,
-        );
-        _goToLogin();
+        // Hanya terjadi jika "Confirm email" dimatikan di Supabase (tidak ada
+        // email verifikasi yang dikirim), sehingga sesi langsung aktif.
+        _goToDashboard();
       }
     } on AuthException catch (e) {
       if (mounted) _showMessage(e.message);
@@ -95,35 +126,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration(
-    String label,
-    IconData icon, {
-    Widget? suffix,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: const Color(0xFF64748B)),
-      suffixIcon: suffix,
-      filled: true,
-      fillColor: const Color(0xFFF1F5F9),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _navy, width: 1.6),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade400),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.red.shade600, width: 1.6),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -207,19 +209,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             autofillHints: const [AutofillHints.email],
                             textInputAction: TextInputAction.next,
                             enabled: !_isLoading,
-                            decoration: _fieldDecoration(
+                            decoration: authInputDecoration(
                               'Email',
                               Icons.email_outlined,
                             ),
-                            validator: (value) {
-                              final v = value?.trim() ?? '';
-                              if (v.isEmpty) return 'Email tidak boleh kosong';
-                              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                  .hasMatch(v)) {
-                                return 'Format email tidak valid';
-                              }
-                              return null;
-                            },
+                            validator: Validators.validateEmail,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -229,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             autofillHints: const [AutofillHints.newPassword],
                             textInputAction: TextInputAction.next,
                             enabled: !_isLoading,
-                            decoration: _fieldDecoration(
+                            decoration: authInputDecoration(
                               'Password',
                               Icons.lock_outline_rounded,
                               suffix: IconButton(
@@ -244,16 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                             ),
-                            validator: (value) {
-                              final v = value ?? '';
-                              if (v.isEmpty) {
-                                return 'Password tidak boleh kosong';
-                              }
-                              if (v.length < 6) {
-                                return 'Password minimal 6 karakter';
-                              }
-                              return null;
-                            },
+                            validator: Validators.validatePassword,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -264,7 +249,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             textInputAction: TextInputAction.done,
                             enabled: !_isLoading,
                             onFieldSubmitted: (_) => _handleRegister(),
-                            decoration: _fieldDecoration(
+                            decoration: authInputDecoration(
                               'Konfirmasi Password',
                               Icons.verified_user_outlined,
                               suffix: IconButton(
@@ -280,16 +265,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                             ),
-                            validator: (value) {
-                              final v = value ?? '';
-                              if (v.isEmpty) {
-                                return 'Konfirmasi password tidak boleh kosong';
-                              }
-                              if (v != _passwordController.text) {
-                                return 'Password dan Konfirmasi Password harus cocok';
-                              }
-                              return null;
-                            },
+                            validator: (value) =>
+                                Validators.validatePasswordConfirmation(
+                              value,
+                              _passwordController.text,
+                            ),
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(
