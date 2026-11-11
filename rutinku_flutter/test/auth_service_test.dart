@@ -14,6 +14,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(UserAttributes());
+    registerFallbackValue(OtpType.recovery);
   });
 
   setUp(() {
@@ -22,35 +23,90 @@ void main() {
   });
 
   group('AuthService.resetPassword', () {
-    test('memanggil resetPasswordForEmail dengan deep link aplikasi', () async {
-      when(
-        () => client.resetPasswordForEmail(
-          any(),
-          redirectTo: any(named: 'redirectTo'),
-        ),
-      ).thenAnswer((_) async {});
+    test('memanggil resetPasswordForEmail (email berisi kode 6 digit)',
+        () async {
+      when(() => client.resetPasswordForEmail(any()))
+          .thenAnswer((_) async {});
 
       await service.resetPassword('user@mail.com');
 
-      verify(
-        () => client.resetPasswordForEmail(
-          'user@mail.com',
-          redirectTo: AuthService.authRedirectUrl,
-        ),
-      ).called(1);
+      verify(() => client.resetPasswordForEmail('user@mail.com')).called(1);
     });
 
     test('meneruskan AuthException dari Supabase', () {
-      when(
-        () => client.resetPasswordForEmail(
-          any(),
-          redirectTo: any(named: 'redirectTo'),
-        ),
-      ).thenThrow(const AuthException('Email rate limit exceeded'));
+      when(() => client.resetPasswordForEmail(any()))
+          .thenThrow(const AuthException('Email rate limit exceeded'));
 
       expect(
         service.resetPassword('user@mail.com'),
         throwsA(isA<AuthException>()),
+      );
+    });
+  });
+
+  group('AuthService.verifyRecoveryCode', () {
+    void stubVerify(Future<AuthResponse> Function() answer) {
+      when(
+        () => client.verifyOTP(
+          email: any(named: 'email'),
+          token: any(named: 'token'),
+          type: any(named: 'type'),
+        ),
+      ).thenAnswer((_) => answer());
+    }
+
+    test('memanggil verifyOTP(type: recovery) dengan email & kode', () async {
+      stubVerify(() async => AuthResponse());
+
+      await service.verifyRecoveryCode('user@mail.com', '123456');
+
+      verify(
+        () => client.verifyOTP(
+          email: 'user@mail.com',
+          token: '123456',
+          type: OtpType.recovery,
+        ),
+      ).called(1);
+    });
+
+    test('kode salah/kedaluwarsa meneruskan AuthException', () {
+      stubVerify(
+        () => Future.error(
+          const AuthException(
+            'Token has expired or is invalid',
+            statusCode: '403',
+            code: 'otp_expired',
+          ),
+        ),
+      );
+
+      expect(
+        service.verifyRecoveryCode('user@mail.com', '000000'),
+        throwsA(isA<AuthException>()),
+      );
+    });
+  });
+
+  group('AuthService.recoveryCodeErrorMessage', () {
+    test('kode salah/kedaluwarsa diberi pesan jelas', () {
+      expect(
+        AuthService.recoveryCodeErrorMessage(
+          const AuthException(
+            'Token has expired or is invalid',
+            statusCode: '403',
+            code: 'otp_expired',
+          ),
+        ),
+        contains('Kode salah atau sudah kedaluwarsa'),
+      );
+    });
+
+    test('error lain memakai pesan dari Supabase', () {
+      expect(
+        AuthService.recoveryCodeErrorMessage(
+          const AuthException('Email rate limit exceeded'),
+        ),
+        'Email rate limit exceeded',
       );
     });
   });

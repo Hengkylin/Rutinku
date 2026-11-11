@@ -16,8 +16,9 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 1. **Autentikasi Penuh (Supabase Auth):** Alur akun lengkap dari daftar hingga pemulihan password:
    - **Login** (`/login`) dengan email & password.
    - **Register + Verifikasi Email** (`/register`): setelah mendaftar, pengguna tidak langsung masuk ke Beranda, melainkan mendapat dialog *"Silakan cek email Anda untuk verifikasi"* lalu diarahkan ke Login.
-   - **Lupa Password** (`/forgot-password`): mengirim link reset ke email terdaftar.
-   - **Reset Password** (`/update-password`): link di email membuka aplikasi lewat *deep link* `io.supabase.rutinku://login-callback/`, lalu aplikasi otomatis menampilkan form **Password Baru** dan kembali ke Beranda setelah berhasil.
+   - **Lupa Password** (`/forgot-password`): mengirim **kode 6 digit** ke email terdaftar (bukan link, sehingga tidak bisa "terpakai" lebih dulu oleh pemindai keamanan email).
+   - **Reset Password dengan Kode OTP**: pengguna memasukkan kode di layar **Masukkan Kode** (bisa **kirim ulang kode**), lalu membuat **Password Baru** dan kembali ke Beranda setelah berhasil.
+   - Link **verifikasi pendaftaran** di email membuka aplikasi lewat *deep link* `io.supabase.rutinku://login-callback/`; jika link sudah kedaluwarsa, aplikasi menampilkan pesan yang jelas.
 2. **Manajemen Kebiasaan (CRUD), Templat, & *Habit Stacking*:** Fitur untuk menambah, membaca, mengedit, dan menghapus (beserta *undo*) target kebiasaan harian yang disimpan secara persisten di penyimpanan lokal (`SharedPreferences`).
 3. **Cloud Sync Supabase (Backup, Fetch, & Restore JSONB):** Sinkronisasi data kebiasaan ke tabel PostgreSQL `user_data` di Supabase untuk mencadangkan data lokal ke *cloud* dan memulihkannya kembali kapan saja.
 4. **Sistem *Daily Check-in*, Refleksi Mood, & Kalkulasi *Streak*:** Tombol responsif (*Optimistic UI*) untuk menandai kebiasaan selesai, mencatat suasana hati atau hari istirahat (*recovery mode*), serta menghitung *streak* secara akurat.
@@ -35,10 +36,10 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 4. **Fitur Jejaring Sosial:** Tidak mencakup *leaderboard* publik antar pengguna atau pembagian otomatis ke media sosial.
 
 ## Kriteria Aplikasi Dinyatakan Berhasil
-1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru dan memverifikasi email, melakukan *login*, meminta tautan *reset password*, membuka tautan tersebut langsung di aplikasi untuk membuat password baru, serta memperoleh sesi akses yang terisolasi untuk data akun miliknya sendiri melalui Supabase Auth.
+1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru dan memverifikasi email, melakukan *login*, meminta kode *reset password* 6 digit lewat email, memasukkan kode tersebut di aplikasi untuk membuat password baru, serta memperoleh sesi akses yang terisolasi untuk data akun miliknya sendiri melalui Supabase Auth.
 2. **Persistensi Lokal & Sinkronisasi Cloud Sukses:** Data kebiasaan tersimpan utuh di perangkat meskipun aplikasi ditutup, serta operasi *Backup*, *Fetch*, dan *Restore* ke *Cloud Database* Supabase berjalan lancar sehingga data tidak hilang saat pengguna masuk di perangkat Android lain.
 3. **Notifikasi *Background* & Kamera Berfungsi Aman:** Pengingat lokal muncul sesuai jadwal yang ditentukan pengguna dan fitur *"Abadikan Momen"* berhasil menyimpan foto jurnal kebiasaan tanpa menyebabkan *crash* meskipun izin perangkat ditolak atau aksi dibatalkan.
-4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **102 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
+4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **116 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
 
 ---
 

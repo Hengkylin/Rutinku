@@ -7,6 +7,10 @@ class Validators {
   static const int minPhoneDigits = 10;
   static const int minTargetValue = 1;
   static const int minPasswordLength = 6;
+
+  /// Panjang kode reset password dari email. Harus sama dengan pengaturan
+  /// "Email OTP Length" di Supabase Dashboard.
+  static const int otpLength = 6;
   static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -69,6 +73,16 @@ class Validators {
   static String? validatePasswordConfirmation(String? value, String password) {
     if ((value ?? '').isEmpty) return 'Konfirmasi password tidak boleh kosong';
     if (value != password) return 'Password dan Konfirmasi Password harus cocok';
+    return null;
+  }
+
+  /// Validasi kode reset password: wajib diisi, hanya angka, tepat
+  /// [otpLength] digit.
+  static String? validateOtpCode(String? value) {
+    final code = normalize(value);
+    if (code.isEmpty) return 'Kode wajib diisi';
+    if (!_digitsOnlyRegex.hasMatch(code)) return 'Kode harus berupa angka';
+    if (code.length != otpLength) return 'Kode harus $otpLength digit';
     return null;
   }
 

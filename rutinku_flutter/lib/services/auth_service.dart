@@ -10,15 +10,10 @@ class AuthService {
 
   GoTrueClient get _auth => _client ?? Supabase.instance.client.auth;
 
-  /// Deep link tujuan link di email (reset password). Harus sama dengan
-  /// intent-filter di `android/app/src/main/AndroidManifest.xml` dan
-  /// didaftarkan di Supabase Dashboard → Authentication → URL Configuration
-  /// → Redirect URLs.
-  static const String authRedirectUrl = 'io.supabase.rutinku://login-callback/';
-
   /// Pesan yang ramah pengguna untuk error saat membuka link dari email
-  /// (deep link). Mengembalikan `null` jika [error] bukan berasal dari link,
-  /// mis. refresh token kedaluwarsa, agar tidak ditampilkan ke pengguna.
+  /// (deep link, mis. link verifikasi pendaftaran). Mengembalikan `null` jika
+  /// [error] bukan berasal dari link, mis. refresh token kedaluwarsa, agar
+  /// tidak ditampilkan ke pengguna.
   static String? linkErrorMessage(Object error) {
     if (error is! AuthException) return null;
 
@@ -30,12 +25,21 @@ class AuthService {
           'dan buka email yang paling baru.';
     }
 
-    // PKCE: kode verifikasi hanya tersimpan di perangkat yang meminta reset.
+    // PKCE: kode verifikasi hanya tersimpan di perangkat yang meminta link.
     if (error.message.contains('Code verifier could not be found')) {
-      return 'Link harus dibuka di HP yang sama tempat Anda meminta reset '
-          'password. Silakan minta link baru dari HP ini.';
+      return 'Link harus dibuka di HP yang sama tempat Anda mendaftar atau '
+          'meminta link tersebut.';
     }
     return null;
+  }
+
+  /// Pesan untuk error saat memverifikasi kode reset password.
+  static String recoveryCodeErrorMessage(AuthException error) {
+    if (error.code == 'otp_expired' || error.statusCode == 'otp_expired') {
+      return 'Kode salah atau sudah kedaluwarsa. Periksa email terbaru, atau '
+          'tekan "Kirim ulang kode".';
+    }
+    return error.message;
   }
 
   User? get currentUser => _auth.currentUser;
@@ -51,14 +55,21 @@ class AuthService {
     return _auth.signUp(email: email, password: password);
   }
 
-  /// Mengirim email berisi link reset password. Link membuka aplikasi lewat
-  /// [authRedirectUrl] dan memicu event `AuthChangeEvent.passwordRecovery`.
+  /// Mengirim email reset password. Template email "Reset Password" di
+  /// Supabase berisi kode 6 digit (`{{ .Token }}`), bukan link, sehingga
+  /// tidak bisa "terpakai" oleh pemindai keamanan email.
   Future<void> resetPassword(String email) async {
-    await _auth.resetPasswordForEmail(email, redirectTo: authRedirectUrl);
+    await _auth.resetPasswordForEmail(email);
+  }
+
+  /// Memverifikasi kode reset dari email. Jika benar, Supabase membuat sesi
+  /// recovery (pengguna login) sehingga password baru bisa disimpan.
+  Future<void> verifyRecoveryCode(String email, String code) async {
+    await _auth.verifyOTP(email: email, token: code, type: OtpType.recovery);
   }
 
   /// Mengganti password pengguna yang sedang login (termasuk sesi recovery
-  /// dari link reset password).
+  /// dari kode reset password).
   Future<void> updatePassword(String newPassword) async {
     await _auth.updateUser(UserAttributes(password: newPassword));
   }

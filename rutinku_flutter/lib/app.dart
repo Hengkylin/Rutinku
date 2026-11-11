@@ -24,12 +24,11 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
-  /// Dipakai untuk navigasi dari luar widget tree (listener auth).
+  /// Dipakai untuk menampilkan pesan dari luar widget tree (listener auth).
   final _navigatorKey = GlobalKey<NavigatorState>();
 
   late final AuthService _auth = widget.authService ?? AuthService();
   StreamSubscription<AuthState>? _authSubscription;
-  bool _isUpdatePasswordOpen = false;
 
   User? get _currentUser {
     try {
@@ -51,26 +50,21 @@ class _AppState extends State<App> {
     super.dispose();
   }
 
+  /// Hanya mendengarkan *error* auth. Event sukses (mis. passwordRecovery
+  /// dari verifikasi kode reset) tidak memicu navigasi di sini: layar
+  /// Masukkan Kode yang membuka Password Baru, agar tidak terbuka dua kali.
   void _listenAuthStateChanges() {
     try {
       _authSubscription = _auth.onAuthStateChange.listen(
-        _onAuthStateChange,
+        (_) {},
         // Error stream auth tidak boleh membuat aplikasi crash. Error dari
-        // link email (kedaluwarsa/sudah dipakai) ditampilkan ke pengguna;
-        // error lain (mis. refresh token kedaluwarsa) cukup diabaikan karena
-        // sesi akan diminta ulang lewat Login.
+        // link email (mis. link verifikasi pendaftaran kedaluwarsa)
+        // ditampilkan ke pengguna; error lain (mis. refresh token
+        // kedaluwarsa) diabaikan karena sesi akan diminta ulang lewat Login.
         onError: _onAuthError,
       );
     } catch (_) {
       // Supabase belum diinisialisasi (mis. saat pengujian).
-    }
-  }
-
-  void _onAuthStateChange(AuthState state) {
-    // Link reset password dari email membuka aplikasi via deep link dan
-    // Supabase memancarkan passwordRecovery → minta pengguna buat password baru.
-    if (state.event == AuthChangeEvent.passwordRecovery) {
-      _openUpdatePassword();
     }
   }
 
@@ -85,22 +79,6 @@ class _AppState extends State<App> {
       return;
     }
     showAppSnackBar(context, message, isError: true);
-  }
-
-  Future<void> _openUpdatePassword() async {
-    // Stream Supabase me-replay event lama; jangan menumpuk layar yang sama.
-    if (_isUpdatePasswordOpen) return;
-
-    final navigator = _navigatorKey.currentState;
-    if (navigator == null) {
-      // Event datang sebelum Navigator siap (cold start dari link email).
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openUpdatePassword());
-      return;
-    }
-
-    _isUpdatePasswordOpen = true;
-    await navigator.pushNamed(AppRoutes.updatePassword);
-    _isUpdatePasswordOpen = false;
   }
 
   @override

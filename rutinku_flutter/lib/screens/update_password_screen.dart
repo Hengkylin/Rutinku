@@ -8,8 +8,9 @@ import '../widgets/app_snackbar.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_input_decoration.dart';
 
-/// Halaman membuat password baru. Dibuka otomatis oleh `App` saat Supabase
-/// memancarkan `AuthChangeEvent.passwordRecovery` (link reset dari email).
+/// Langkah 3 reset password: membuat password baru. Dibuka oleh
+/// `VerifyResetCodeScreen` setelah kode 6 digit dari email terverifikasi
+/// (pengguna sudah memiliki sesi recovery).
 class UpdatePasswordScreen extends StatefulWidget {
   const UpdatePasswordScreen({super.key, this.authService});
 

@@ -7,8 +7,10 @@ import '../utils/validators.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_input_decoration.dart';
+import 'verify_reset_code_screen.dart';
 
-/// Halaman Lupa Password untuk mengirim tautan reset password via Supabase Auth.
+/// Halaman Lupa Password: mengirim kode reset 6 digit ke email via Supabase
+/// Auth, lalu membuka layar Masukkan Kode.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key, this.authService});
 
@@ -45,15 +47,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
-  Future<void> _handleSendResetLink() async {
+  Future<void> _handleSendResetCode() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isLoading = true);
     try {
-      await _auth.resetPassword(Validators.normalize(_emailController.text));
+      final email = Validators.normalize(_emailController.text);
+      await _auth.resetPassword(email);
 
       if (!mounted) return;
-      _showMessage('Link reset telah dikirim ke email Anda', isError: false);
+      _showMessage('Kode reset telah dikirim ke email Anda', isError: false);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VerifyResetCodeScreen(email: email, authService: _auth),
+        ),
+      );
     } on AuthException catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (e) {
@@ -62,7 +70,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +108,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     icon: Icons.lock_reset_rounded,
                     title: 'Atur Ulang Password',
                     subtitle:
-                        'Masukkan alamat email yang terdaftar pada akun RutinKu Anda. Kami akan mengirimkan link untuk mengatur ulang password ke email tersebut.',
+                        'Masukkan alamat email yang terdaftar pada akun RutinKu Anda. '
+                        'Kami akan mengirimkan kode ${Validators.otpLength} digit '
+                        'ke email tersebut untuk mengatur ulang password.',
                   ),
                   const SizedBox(height: 28),
                   Container(
@@ -130,7 +139,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             autofillHints: const [AutofillHints.email],
                             textInputAction: TextInputAction.done,
                             enabled: !_isLoading,
-                            onFieldSubmitted: (_) => _handleSendResetLink(),
+                            onFieldSubmitted: (_) => _handleSendResetCode(),
                             decoration: authInputDecoration(
                               'Email',
                               Icons.email_outlined,
@@ -150,7 +159,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               elevation: 0,
                             ),
                             onPressed:
-                                _isLoading ? null : _handleSendResetLink,
+                                _isLoading ? null : _handleSendResetCode,
                             child: _isLoading
                                 ? const SizedBox(
                                     width: 20,
@@ -163,7 +172,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     ),
                                   )
                                 : const Text(
-                                    'Kirim Link Reset',
+                                    'Kirim Kode Reset',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,

@@ -90,6 +90,16 @@ void main() {
     });
   });
 
+  group('Validators.validateOtpCode', () {
+    test('wajib diisi, hanya angka, dan tepat 6 digit', () {
+      expect(Validators.validateOtpCode(''), 'Kode wajib diisi');
+      expect(Validators.validateOtpCode('12a456'), 'Kode harus berupa angka');
+      expect(Validators.validateOtpCode('12345'), 'Kode harus 6 digit');
+      expect(Validators.validateOtpCode('1234567'), 'Kode harus 6 digit');
+      expect(Validators.validateOtpCode(' 123456 '), isNull);
+    });
+  });
+
   group('Validators.validateTargetValue', () {
     test('wajib diisi, harus angka bulat, dan minimal 1', () {
       expect(Validators.validateTargetValue(''), 'Target wajib diisi');

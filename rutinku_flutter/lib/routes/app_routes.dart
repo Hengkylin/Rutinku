@@ -6,14 +6,12 @@ import '../screens/main_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/sync_screen.dart';
-import '../screens/update_password_screen.dart';
 
 class AppRoutes {
   static const String main = '/';
   static const String login = '/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
-  static const String updatePassword = '/update-password';
   static const String dashboard = '/dashboard';
   static const String profile = '/profile';
   static const String calendar = '/calendar';
@@ -25,7 +23,6 @@ class AppRoutes {
     login: (context) => const LoginScreen(),
     register: (context) => const RegisterScreen(),
     forgotPassword: (context) => const ForgotPasswordScreen(),
-    updatePassword: (context) => const UpdatePasswordScreen(),
     dashboard: (context) => const MainScreen(),
     profile: (context) => const ProfileScreen(),
     calendar: (context) => const CalendarScreen(),

@@ -9,6 +9,7 @@ import 'package:rutinku_flutter/screens/forgot_password_screen.dart';
 import 'package:rutinku_flutter/screens/login_screen.dart';
 import 'package:rutinku_flutter/screens/register_screen.dart';
 import 'package:rutinku_flutter/screens/update_password_screen.dart';
+import 'package:rutinku_flutter/screens/verify_reset_code_screen.dart';
 import 'package:rutinku_flutter/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -68,7 +69,9 @@ void main() {
       verifyNever(() => auth.resetPassword(any()));
     });
 
-    testWidgets('sukses: loading tampil lalu SnackBar hijau', (tester) async {
+    testWidgets(
+        'sukses: loading, SnackBar hijau, lalu pindah ke layar Masukkan Kode',
+        (tester) async {
       final request = Completer<void>();
       when(() => auth.resetPassword(any())).thenAnswer((_) => request.future);
       await tester.pumpWidget(wrap(ForgotPasswordScreen(authService: auth)));
@@ -83,10 +86,11 @@ void main() {
       await tester.pumpAndSettle();
 
       verify(() => auth.resetPassword('user@mail.com')).called(1);
-      expect(find.text('Link reset telah dikirim ke email Anda'), findsOneWidget);
+      expect(find.text('Kode reset telah dikirim ke email Anda'), findsOneWidget);
       final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
       expect(snackBar.backgroundColor, _green);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(VerifyResetCodeScreen), findsOneWidget);
+      expect(find.textContaining('user@mail.com'), findsOneWidget);
     });
 
     testWidgets('gagal: pesan error Supabase tampil di SnackBar merah',
@@ -102,6 +106,82 @@ void main() {
       expect(find.text('Email rate limit exceeded'), findsOneWidget);
       final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
       expect(snackBar.backgroundColor, Colors.red.shade600);
+    });
+  });
+
+  group('VerifyResetCodeScreen', () {
+    final codeField = find.byKey(const Key('reset_code_field'));
+    final submit = find.byKey(const Key('reset_code_submit_button'));
+
+    Widget screen() => wrap(
+          VerifyResetCodeScreen(email: 'user@mail.com', authService: auth),
+        );
+
+    void stubVerify(Future<void> Function() answer) {
+      when(() => auth.verifyRecoveryCode(any(), any()))
+          .thenAnswer((_) => answer());
+    }
+
+    testWidgets('kode kurang dari 6 digit ditolak', (tester) async {
+      await tester.pumpWidget(screen());
+
+      await tester.enterText(codeField, '123');
+      await tapVisible(tester, submit);
+      await tester.pump();
+
+      expect(find.text('Kode harus 6 digit'), findsOneWidget);
+      verifyNever(() => auth.verifyRecoveryCode(any(), any()));
+    });
+
+    testWidgets('kode benar: verifikasi lalu buka layar Password Baru',
+        (tester) async {
+      stubVerify(() async {});
+      await tester.pumpWidget(screen());
+
+      await tester.enterText(codeField, '123456');
+      await tapVisible(tester, submit);
+      await tester.pumpAndSettle();
+
+      verify(() => auth.verifyRecoveryCode('user@mail.com', '123456')).called(1);
+      expect(find.byType(UpdatePasswordScreen), findsOneWidget);
+      expect(find.byType(VerifyResetCodeScreen), findsNothing);
+    });
+
+    testWidgets('kode salah: SnackBar merah, tetap di layar kode',
+        (tester) async {
+      stubVerify(
+        () => Future.error(
+          const AuthException(
+            'Token has expired or is invalid',
+            statusCode: '403',
+            code: 'otp_expired',
+          ),
+        ),
+      );
+      await tester.pumpWidget(screen());
+
+      await tester.enterText(codeField, '000000');
+      await tapVisible(tester, submit);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Kode salah atau sudah kedaluwarsa'),
+        findsOneWidget,
+      );
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snackBar.backgroundColor, Colors.red.shade600);
+      expect(find.byType(UpdatePasswordScreen), findsNothing);
+    });
+
+    testWidgets('kirim ulang kode memanggil resetPassword lagi', (tester) async {
+      when(() => auth.resetPassword(any())).thenAnswer((_) async {});
+      await tester.pumpWidget(screen());
+
+      await tapVisible(tester, find.byKey(const Key('reset_code_resend_button')));
+      await tester.pumpAndSettle();
+
+      verify(() => auth.resetPassword('user@mail.com')).called(1);
+      expect(find.text('Kode baru telah dikirim ke email Anda'), findsOneWidget);
     });
   });
 
@@ -191,7 +271,7 @@ void main() {
     });
   });
 
-  group('App - listener AuthChangeEvent.passwordRecovery', () {
+  group('App - listener status auth', () {
     late StreamController<AuthState> authEvents;
 
     setUp(() {
@@ -202,21 +282,16 @@ void main() {
 
     tearDown(() => authEvents.close());
 
-    testWidgets('passwordRecovery membuka UpdatePasswordScreen (sekali saja)',
-        (tester) async {
+    testWidgets(
+        'passwordRecovery (dari verifyOTP) tidak membuka layar dari App, '
+        'agar Password Baru tidak terbuka dua kali', (tester) async {
       await tester.pumpWidget(App(home: const Text('HOME'), authService: auth));
 
       authEvents.add(const AuthState(AuthChangeEvent.passwordRecovery, null));
       await tester.pumpAndSettle();
-      expect(find.byType(UpdatePasswordScreen), findsOneWidget);
 
-      // Event ganda (mis. replay dari Supabase) tidak menumpuk layar.
-      authEvents.add(const AuthState(AuthChangeEvent.passwordRecovery, null));
-      await tester.pumpAndSettle();
-      expect(
-        find.byType(UpdatePasswordScreen, skipOffstage: false),
-        findsOneWidget,
-      );
+      expect(find.byType(UpdatePasswordScreen), findsNothing);
+      expect(find.text('HOME'), findsOneWidget);
     });
 
     testWidgets('link email kedaluwarsa menampilkan SnackBar merah, bukan diam',

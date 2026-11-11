@@ -15,10 +15,12 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 
 ## 2. Alur Sistem (*System Flow*)
 1. **Autentikasi Penuh (Supabase Auth):** Aplikasi memeriksa sesi aktif (`AuthService.currentUser`). Jika pengguna belum masuk (`currentUser == null`), aplikasi menampilkan `LoginScreen` (`/login`). Sesi login dikelola otomatis oleh SDK `supabase_flutter`. Semua pemanggilan Supabase Auth lewat **`AuthService`** (`services/auth_service.dart`), yang menerima `GoTrueClient` lewat konstruktor agar bisa diganti *mock* saat pengujian.
-   * **Register + Verifikasi Email** — `RegisterScreen` (`/register`) memanggil `signUp`. Project Supabase mewajibkan konfirmasi email (`mailer_autoconfirm: false`), sehingga `signUp` tidak mengembalikan sesi; layar menampilkan dialog wajib *"Silakan cek email Anda untuk verifikasi"* lalu mengarahkan ke Login (bukan ke Beranda). Jika suatu saat "Confirm email" dimatikan di Supabase, sesi langsung aktif dan pengguna masuk ke Beranda.
-   * **Lupa Password** — `ForgotPasswordScreen` (`/forgot-password`) memanggil `AuthService.resetPassword(email)` → `resetPasswordForEmail(email, redirectTo: AuthService.authRedirectUrl)`, lalu menampilkan SnackBar hijau *"Link reset telah dikirim ke email Anda"*.
-   * **Reset Password via Deep Link** — link di email membuka aplikasi lewat `io.supabase.rutinku://login-callback/` (lihat [bagian 5](#5-konfigurasi-deep-link--supabase-dashboard)). SDK menukar kode PKCE menjadi sesi recovery dan memancarkan `AuthChangeEvent.passwordRecovery`. `App` (`app.dart`) berlangganan `AuthService.onAuthStateChange` dan, saat event tersebut datang, mendorong rute `/update-password` lewat `navigatorKey` global. Stream Supabase adalah `ReplaySubject` (event lama diputar ulang), sehingga `App` menjaga agar layar tidak dibuka dua kali; error pada stream diabaikan agar aplikasi tidak *crash*.
-   * **Password Baru** — `UpdatePasswordScreen` (`/update-password`) memvalidasi password baru (minimal 6 karakter) dan konfirmasinya (harus sama), memanggil `AuthService.updatePassword()` → `updateUser(UserAttributes(password: ...))`, menampilkan SnackBar sukses, lalu ke Beranda (sesi recovery sudah login).
+   * **Register + Verifikasi Email** — `RegisterScreen` (`/register`) memanggil `signUp`. Project Supabase mewajibkan konfirmasi email (`mailer_autoconfirm: false`), sehingga `signUp` tidak mengembalikan sesi; layar menampilkan dialog wajib *"Silakan cek email Anda untuk verifikasi"* lalu mengarahkan ke Login (bukan ke Beranda). Link verifikasi di email diarahkan ke *Site URL* `io.supabase.rutinku://login-callback/` sehingga membuka aplikasi lewat *deep link*. Jika suatu saat "Confirm email" dimatikan di Supabase, sesi langsung aktif dan pengguna masuk ke Beranda.
+   * **Reset Password dengan Kode OTP (3 langkah)** — reset password memakai **kode 6 digit**, bukan link. Link sekali pakai terbukti hangus sebelum diketuk (error `otp_expired`), kemungkinan karena dipindai sistem keamanan email; kode yang diketik manual tidak bisa "terpakai" oleh pemindai.
+     1. **Lupa Password** — `ForgotPasswordScreen` (`/forgot-password`) memanggil `AuthService.resetPassword(email)` → `resetPasswordForEmail(email)`. Supabase mengirim email dari template *Reset password* yang berisi `{{ .Token }}` (lihat [bagian 5](#5-konfigurasi-supabase-dashboard--deep-link)). Layar menampilkan SnackBar hijau *"Kode reset telah dikirim ke email Anda"* lalu membuka `VerifyResetCodeScreen` dengan email tersebut.
+     2. **Masukkan Kode** — `VerifyResetCodeScreen` memvalidasi kode (`Validators.validateOtpCode`: hanya angka, tepat 6 digit), lalu memanggil `AuthService.verifyRecoveryCode(email, code)` → `verifyOTP(email, token, type: OtpType.recovery)`. Jika benar, Supabase membuat sesi recovery dan layar diganti (`pushReplacement`) dengan `UpdatePasswordScreen`. Kode salah/kedaluwarsa dipetakan oleh `AuthService.recoveryCodeErrorMessage()` menjadi pesan yang jelas. Tombol **Kirim ulang kode** memanggil `resetPassword` lagi.
+     3. **Password Baru** — `UpdatePasswordScreen` memvalidasi password baru (minimal 6 karakter) dan konfirmasinya (harus sama), memanggil `AuthService.updatePassword()` → `updateUser(UserAttributes(password: ...))`, menampilkan SnackBar sukses, lalu ke Beranda (sesi recovery sudah login).
+   * **Listener status auth di `App`** — `App` (`app.dart`) berlangganan `AuthService.onAuthStateChange` **hanya untuk error**. `verifyOTP` tipe recovery juga memancarkan `AuthChangeEvent.passwordRecovery`, tetapi `App` sengaja tidak bernavigasi karena event itu (layar kode yang membuka Password Baru), agar layar tidak terbuka dua kali. Error dari link email (mis. link verifikasi pendaftaran kedaluwarsa/sudah dipakai, atau dibuka di HP lain) diubah oleh `AuthService.linkErrorMessage()` menjadi SnackBar merah lewat `navigatorKey` global; error lain (mis. refresh token kedaluwarsa) diabaikan.
 2. **Manajemen Kebiasaan Lokal (CRUD & Optimistic UI):** Seluruh operasi pembuatan, pembaruan, *check-in* harian, pencatatan refleksi mood/istirahat, dan penghapusan kebiasaan dikelola secara reaktif oleh `HabitNotifier` dan disimpan secara persisten di penyimpanan lokal menggunakan `SharedPreferences` (key: `rutinku_habits`).
 3. **Sinkronisasi Cloud (Supabase JSONB):** Melalui `SyncScreen` → `SyncNotifier` → `SyncRepository`, pengguna dapat menarik pratinjau data dari *cloud* (**Fetch**), mencadangkan seluruh JSON kebiasaan lokal ke tabel PostgreSQL `user_data` menggunakan operasi `upsert` (**Backup**), atau memulihkan data dari *cloud* ke `SharedPreferences` lokal (**Restore**).
 4. **Kalkulasi Streak Dinamis:** `HabitModel` menghitung jumlah *streak* harian secara dinamis berdasarkan riwayat `records` (`HabitRecord`), termasuk toleransi hari berjalan (*grace period*) dan pelestarian *streak* pada hari istirahat (`status: 'rest'`). Satu hari dianggap selesai lewat `isCompletedOn()`: target 1 → status `'completed'`; target > 1 → `currentValue >= targetValue`.
@@ -37,9 +39,9 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
    * `getWeeklyCompletionRates()` & `getWeeklyProgressComparison()` — persentase penyelesaian gabungan (hari selesai ÷ jumlah habit × 7) untuk hari ke-1..7 dan ke-8..14 mundur dari hari ini, serta selisihnya (positif = membaik).
    * Tampilan: 2 kartu ringkasan (Paling Konsisten & Hari Sering Terlewat), `BarChart` (`fl_chart`) dua batang "Minggu Lalu" vs "Minggu Ini" (skala 0–100%), dan teks selisih berwarna hijau/merah.
 8. **Aturan Input & Komponen UI Bersama (DRY):** aturan dan tampilan yang sebelumnya disalin di beberapa layar kini ditulis sekali:
-   * **`Validators`** (`utils/validators.dart`) — satu-satunya sumber aturan input: `normalize`/`normalizeOptional`, `validateName`, `validatePhone`, `validateTargetValue`/`parseTargetValue`, `validateEmail`, `validatePassword` (minimal 6 karakter, tidak di-trim), dan `validatePasswordConfirmation`. Dipakai oleh Login, Register, Lupa Password, Password Baru, `ProfileForm`, dan `HabitTargetFields`; tidak ada regex atau aturan panjang yang ditulis ulang di layar.
-   * **`authInputDecoration()`** (`widgets/auth_input_decoration.dart`) — gaya `TextFormField` seragam untuk keempat layar autentikasi.
-   * **`AuthHeader`** (`widgets/auth_header.dart`) — header ikon + judul + deskripsi untuk layar Lupa Password dan Password Baru.
+   * **`Validators`** (`utils/validators.dart`) — satu-satunya sumber aturan input: `normalize`/`normalizeOptional`, `validateName`, `validatePhone`, `validateTargetValue`/`parseTargetValue`, `validateEmail`, `validatePassword` (minimal 6 karakter, tidak di-trim), `validatePasswordConfirmation`, dan `validateOtpCode` (tepat `otpLength` = 6 digit). Dipakai oleh Login, Register, Lupa Password, Masukkan Kode, Password Baru, `ProfileForm`, dan `HabitTargetFields`; tidak ada regex atau aturan panjang yang ditulis ulang di layar.
+   * **`authInputDecoration()`** (`widgets/auth_input_decoration.dart`) — gaya `TextFormField` seragam untuk kelima layar autentikasi (Login, Register, Lupa Password, Masukkan Kode, Password Baru).
+   * **`AuthHeader`** (`widgets/auth_header.dart`) — header ikon + judul + deskripsi untuk layar Lupa Password, Masukkan Kode, dan Password Baru.
    * **`showAppSnackBar()`** (`widgets/app_snackbar.dart`) — SnackBar seragam (merah untuk error, hijau untuk sukses) di semua layar.
 
 ## 3. Skema Penyimpanan Data
@@ -86,10 +88,10 @@ rutinku_flutter/
 │
 ├── lib/
 │   ├── main.dart                         # Entri utama, inisialisasi Supabase, Notifikasi, & ProviderScope
-│   ├── app.dart                          # Root MaterialApp, pengecekan sesi awal, navigatorKey, & listener passwordRecovery
+│   ├── app.dart                          # Root MaterialApp, pengecekan sesi awal, navigatorKey, & listener error auth (link email)
 │   │
 │   ├── routes/                           # Manajemen navigasi terpusat
-│   │   └── app_routes.dart               # Definisi rute (/login, /register, /forgot-password, /update-password, /dashboard, dll.)
+│   │   └── app_routes.dart               # Definisi rute (/login, /register, /forgot-password, /dashboard, dll.)
 │   │
 │   ├── models/                           # Struktur cetak biru data & serialisasi JSON
 │   │   ├── habit_model.dart              # HabitModel & HabitRecord (streak, progress, momentImagePath)
@@ -106,19 +108,20 @@ rutinku_flutter/
 │   │
 │   ├── services/                         # Layanan eksternal, sistem perangkat, & logika statistik
 │   │   ├── analytics_service.dart        # AnalyticsService: statistik kebiasaan (konsistensi, hari terlewat, komparasi mingguan)
-│   │   ├── auth_service.dart             # Pembungkus Supabase Auth (login, register, resetPassword, updatePassword, onAuthStateChange, logout)
+│   │   ├── auth_service.dart             # Pembungkus Supabase Auth (login, register, resetPassword, verifyRecoveryCode, updatePassword, pesan error)
 │   │   └── notification_service.dart     # Singleton flutter_local_notifications & konfigurasi timezone
 │   │
 │   ├── utils/                            # Utilitas pembantu (perangkat keras & aturan input)
 │   │   ├── camera_helper.dart            # Pengambilan & penyimpanan foto permanen (image_picker & path_provider)
-│   │   └── validators.dart               # Aturan input terpusat (nama, telepon, target, email, password, konfirmasi)
+│   │   └── validators.dart               # Aturan input terpusat (nama, telepon, target, email, password, konfirmasi, kode OTP)
 │   │
 │   ├── screens/                          # Halaman antarmuka utama (Presentation Layer)
 │   │   ├── analytics_screen.dart         # Halaman Analitik (kartu ringkasan & BarChart komparasi mingguan)
 │   │   ├── login_screen.dart             # Halaman Login (/login)
 │   │   ├── register_screen.dart          # Halaman Registrasi akun baru + dialog verifikasi email (/register)
-│   │   ├── forgot_password_screen.dart   # Halaman Lupa Password, kirim link reset (/forgot-password)
-│   │   ├── update_password_screen.dart   # Halaman Password Baru dari link reset (/update-password)
+│   │   ├── forgot_password_screen.dart   # Halaman Lupa Password, kirim kode reset 6 digit (/forgot-password)
+│   │   ├── verify_reset_code_screen.dart # Halaman Masukkan Kode (verifyOTP recovery & kirim ulang kode)
+│   │   ├── update_password_screen.dart   # Halaman Password Baru setelah kode terverifikasi
 │   │   ├── main_screen.dart              # Kerangka navigasi bawah (Tugas, Kalender, Analitik, Milikku)
 │   │   ├── dashboard_screen.dart         # Halaman utama daftar kebiasaan, metrik harian, & Abadikan Momen
 │   │   ├── calendar_screen.dart          # Halaman kalender riwayat check-in & galeri momen harian
@@ -135,17 +138,17 @@ rutinku_flutter/
 │       ├── app_text_field.dart           # Komponen input teks kustom
 │       ├── app_snackbar.dart             # Helper SnackBar seragam (error merah / sukses hijau)
 │       ├── auth_header.dart              # Header bersama layar autentikasi (ikon, judul, deskripsi)
-│       ├── auth_input_decoration.dart    # Gaya input bersama keempat layar autentikasi
+│       ├── auth_input_decoration.dart    # Gaya input bersama semua layar autentikasi
 │       ├── profile_form.dart             # Form profil: input & status UI (loading, error)
 │       └── primary_button.dart           # Komponen tombol aksi utama
 │
-├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/
+├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 │
-├── test/                                 # Pengujian otomatis (102 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (116 Unit & Widget Test)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
 │   ├── analytics_screen_test.dart        # Widget test layar Analitik (empty state, kartu, grafik, warna selisih)
-│   ├── auth_service_test.dart            # Unit test AuthService (resetPassword, updatePassword, stream) dengan mock GoTrueClient
-│   ├── auth_screens_test.dart            # Widget test Login→Lupa Password, Password Baru, dialog verifikasi, & listener passwordRecovery
+│   ├── auth_service_test.dart            # Unit test AuthService (resetPassword, verifyRecoveryCode, updatePassword, pesan error) dengan mock GoTrueClient
+│   ├── auth_screens_test.dart            # Widget test Lupa Password→Masukkan Kode→Password Baru, dialog verifikasi, & listener error auth
 │   ├── api_sync_test.dart                # Unit test Cloud Sync & validasi model (MockSyncRepository / mocktail)
 │   ├── sync_screen_test.dart             # Widget test state UI SyncScreen
 │   ├── checkin_test.dart                 # Unit test CRUD, SharedPreferences, streak, mood, & habit stacking
@@ -160,17 +163,19 @@ rutinku_flutter/
 └── pubspec.yaml                          # Konfigurasi dependensi package Flutter
 ```
 
-## 5. Konfigurasi Deep Link & Supabase Dashboard
+## 5. Konfigurasi Supabase Dashboard & Deep Link
 
-Alur reset password bergantung pada satu URL *deep link* yang harus sama di tiga tempat:
+Sebagian perilaku autentikasi diatur di **Supabase Dashboard**, bukan di kode. Pengaturan berikut **wajib** dan harus selaras dengan aplikasi:
 
 | Tempat | Nilai | Keterangan |
 |---|---|---|
-| `AuthService.authRedirectUrl` (`lib/services/auth_service.dart`) | `io.supabase.rutinku://login-callback/` | Dikirim sebagai `redirectTo` saat `resetPassword`. |
+| **Authentication → Email Templates → Reset password** | Isi email memakai `{{ .Token }}` (kode OTP 6 digit) dan **tanpa** `{{ .ConfirmationURL }}` | Wajib agar email reset berisi kode, bukan link. Jika link ikut terkirim dan dipindai sistem keamanan email, token (dan kodenya) ikut hangus. |
+| Panjang kode OTP email (Supabase) ↔ `Validators.otpLength` | `6` | Kolom kode di aplikasi hanya menerima tepat 6 digit. |
+| **Authentication → URL Configuration → Site URL** (disarankan juga di *Redirect URLs*) | `io.supabase.rutinku://login-callback/` | Tujuan link **verifikasi pendaftaran**; harus sama dengan `intent-filter` di bawah. |
 | `android/app/src/main/AndroidManifest.xml` | `<data android:scheme="io.supabase.rutinku" android:host="login-callback"/>` | `intent-filter` (`VIEW`, `DEFAULT`, `BROWSABLE`) di MainActivity agar Android membuka aplikasi saat link diketuk. |
-| **Supabase Dashboard → Authentication → URL Configuration → Redirect URLs** | `io.supabase.rutinku://login-callback/` | **Langkah manual wajib.** Tanpa ini, Supabase menolak `redirectTo` dan link mengarah ke *Site URL* di browser. |
 
 Catatan operasional:
-* Supabase memakai alur **PKCE**: kode verifikasi disimpan di perangkat yang meminta reset, sehingga link harus dibuka di HP yang sama.
-* Link **verifikasi pendaftaran** belum memakai deep link; link tersebut mengarah ke *Site URL* Supabase, lalu pengguna login manual di aplikasi.
-* Jika skema deep link diganti, ubah ketiga tempat di atas sekaligus.
+* Supabase memakai alur **PKCE** untuk link: kode verifikasi disimpan di perangkat yang meminta, sehingga link verifikasi harus dibuka di HP yang sama.
+* Layanan email **bawaan** Supabase dibatasi **2 email per jam** dan hanya mengirim ke alamat anggota tim project; untuk produksi gunakan SMTP sendiri.
+* Diagnosis cepat di perangkat Android: `adb logcat | grep supabase` menampilkan baris seperti `Notifying exception AuthException(... otp_expired ...)` bila link/kode ditolak Supabase.
+* Jika skema deep link diganti, ubah AndroidManifest dan Site URL sekaligus.

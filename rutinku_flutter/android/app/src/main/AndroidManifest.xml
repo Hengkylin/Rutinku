@@ -30,8 +30,10 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep link Supabase Auth: link reset password dari email membuka
-                 aplikasi. Harus sama dengan AuthService.authRedirectUrl. -->
+            <!-- Deep link Supabase Auth: link verifikasi pendaftaran dari email
+                 membuka aplikasi. Harus sama dengan Site URL di Supabase
+                 Dashboard (io.supabase.rutinku://login-callback/). Reset
+                 password memakai kode 6 digit, bukan link. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
