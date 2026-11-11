@@ -11,6 +11,7 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 * **Sistem Notifikasi Lokal:** `flutter_local_notifications` & `timezone` (penjadwalan pengingat harian sesuai zona waktu lokal pengguna).
 * **Kamera & Penyimpanan Media:** `image_picker` & `path_provider` (fitur *Visual Habit Journal* / *"Abadikan Momen"*).
 * **Kalender & Pengujian:** `table_calendar`, `intl`, serta `flutter_test` & `mocktail` untuk pengujian unit/widget terisolasi.
+* **Visualisasi Data:** `fl_chart` (`BarChart` untuk grafik Komparasi Mingguan pada fitur *Habit Analytics*).
 
 ## 2. Alur Sistem (*System Flow*)
 1. **Autentikasi 3 Halaman (Supabase Auth):** Aplikasi memeriksa sesi aktif (`Supabase.instance.client.auth.currentUser`). Jika pengguna belum masuk (`currentUser == null`), aplikasi mengarahkan ke `LoginScreen` (`/login`), dengan dukungan navigasi ke `RegisterScreen` (`/register` via `signUp`) dan `ForgotPasswordScreen` (`/forgot-password` via `resetPasswordForEmail`). Sesi login dikelola secara otomatis oleh SDK `supabase_flutter`.
@@ -21,10 +22,16 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 5. **Notifikasi Lokal & Visual Habit Journal:**
    * `NotificationService` menjadwalkan pengingat harian pada sistem operasi Android berdasarkan jam `reminderTime` tanpa bergantung pada *server push* eksternal.
    * `CameraHelper` menangkap foto melalui kamera perangkat dan menyimpannya secara permanen di direktori dokumen aplikasi, lalu menautkan path file ke `HabitRecord.momentImagePath`.
-6. **Profil Pengguna:** `ProfileScreen` (tab ketiga di `MainScreen` / `/profile`) memuat nilai awal dari cache lokal lalu menampilkan `ProfileForm`. Fitur ini tidak memakai Riverpod; repository dikirim lewat konstruktor agar mudah diganti saat pengujian. Tanggung jawab dipisah menjadi tiga bagian:
+6. **Profil Pengguna:** `ProfileScreen` (tab keempat **Milikku** di `MainScreen` / `/profile`) memuat nilai awal dari cache lokal lalu menampilkan `ProfileForm`. Fitur ini tidak memakai Riverpod; repository dikirim lewat konstruktor agar mudah diganti saat pengujian. Tanggung jawab dipisah menjadi tiga bagian:
    * **`ProfileForm`** — hanya mengurus input dan status UI (validasi field, *loading*, SnackBar error via `showAppSnackBar`).
    * **`Validators`** — aturan input murni: normalisasi (trim), nama wajib minimal 3 karakter, telepon opsional berupa angka minimal 10 digit.
    * **`ProfileRepository`** — hanya request API: `UPDATE` kolom `name` & `phone` pada tabel Supabase `users` untuk pengguna yang sedang login, lalu menyimpan cache lokal. Jika tabel `users` belum tersedia (kode `42P01` / `PGRST205`), request disimulasikan dengan `Future.delayed`. Error Auth/Postgrest diubah menjadi pesan `Exception` yang siap ditampilkan.
+7. **Habit Analytics (*Exploratory Data Analysis*):** `AnalyticsScreen` (tab ketiga **Analitik** di `MainScreen`) membaca daftar kebiasaan dari `habitNotifierProvider`, lalu menyerahkan seluruh perhitungan statistik ke **`AnalyticsService`** (`services/analytics_service.dart`). Layar hanya menampilkan hasil; tidak ada rumus statistik di widget.
+   * **`AnalyticsService(habits, now: ...)`** — kelas Dart murni (tanpa UI, Riverpod, maupun penyimpanan). Tanggal acuan `now` dapat diinjeksi (default: hari ini) sehingga hasil uji tidak bergantung pada tanggal dijalankan. Definisi "selesai" selalu memakai `HabitModel.isCompletedOn()`, jadi habit progresif ikut dihitung dengan benar.
+   * `getMostConsistentHabit()` — habit dengan persentase hari selesai tertinggi dalam 30 hari terakhir; jika seri, dipilih *streak* tertinggi (`HabitModel.streakCountOn(now)`).
+   * `getMostMissedDay()` — nama hari (mis. `"Selasa"`) dengan record gagal terbanyak dalam 4 minggu terakhir. Hari libur (`'rest'`) tidak dihitung gagal; hari tanpa record juga tidak dihitung.
+   * `getWeeklyCompletionRates()` & `getWeeklyProgressComparison()` — persentase penyelesaian gabungan (hari selesai ÷ jumlah habit × 7) untuk hari ke-1..7 dan ke-8..14 mundur dari hari ini, serta selisihnya (positif = membaik).
+   * Tampilan: 2 kartu ringkasan (Paling Konsisten & Hari Sering Terlewat), `BarChart` (`fl_chart`) dua batang "Minggu Lalu" vs "Minggu Ini" (skala 0–100%), dan teks selisih berwarna hijau/merah.
 
 ## 3. Skema Penyimpanan Data
 
@@ -88,7 +95,8 @@ rutinku_flutter/
 │   │   ├── habit_notifier.dart           # AsyncNotifier kebiasaan (Optimistic UI, check-in, foto momen)
 │   │   └── sync_notifier.dart            # Notifier sinkronisasi cloud (Loading, Empty, Data, Error, Retry)
 │   │
-│   ├── services/                         # Layanan eksternal & sistem perangkat
+│   ├── services/                         # Layanan eksternal, sistem perangkat, & logika statistik
+│   │   ├── analytics_service.dart        # AnalyticsService: statistik kebiasaan (konsistensi, hari terlewat, komparasi mingguan)
 │   │   ├── auth_service.dart             # Pembungkus Supabase Auth (login, register, resetPasswordForEmail, logout)
 │   │   └── notification_service.dart     # Singleton flutter_local_notifications & konfigurasi timezone
 │   │
@@ -97,10 +105,11 @@ rutinku_flutter/
 │   │   └── validators.dart               # Aturan input murni (normalisasi, validasi nama & telepon)
 │   │
 │   ├── screens/                          # Halaman antarmuka utama (Presentation Layer)
+│   │   ├── analytics_screen.dart         # Halaman Analitik (kartu ringkasan & BarChart komparasi mingguan)
 │   │   ├── login_screen.dart             # Halaman Login (/login)
 │   │   ├── register_screen.dart          # Halaman Registrasi akun baru (/register)
 │   │   ├── forgot_password_screen.dart   # Halaman Lupa Password (/forgot-password)
-│   │   ├── main_screen.dart              # Kerangka navigasi bawah (Bottom NavigationBar)
+│   │   ├── main_screen.dart              # Kerangka navigasi bawah (Tugas, Kalender, Analitik, Milikku)
 │   │   ├── dashboard_screen.dart         # Halaman utama daftar kebiasaan, metrik harian, & Abadikan Momen
 │   │   ├── calendar_screen.dart          # Halaman kalender riwayat check-in & galeri momen harian
 │   │   ├── profile_screen.dart           # Halaman Profil (email akun & wadah ProfileForm)
@@ -118,7 +127,9 @@ rutinku_flutter/
 │       ├── profile_form.dart             # Form profil: input & status UI (loading, error)
 │       └── primary_button.dart           # Komponen tombol aksi utama
 │
-├── test/                                 # Pengujian otomatis (72 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (85 Unit & Widget Test)
+│   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
+│   ├── analytics_screen_test.dart        # Widget test layar Analitik (empty state, kartu, grafik, warna selisih)
 │   ├── api_sync_test.dart                # Unit test Cloud Sync & validasi model (MockSyncRepository / mocktail)
 │   ├── sync_screen_test.dart             # Widget test state UI SyncScreen
 │   ├── checkin_test.dart                 # Unit test CRUD, SharedPreferences, streak, mood, & habit stacking

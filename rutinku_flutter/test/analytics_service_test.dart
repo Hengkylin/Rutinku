@@ -139,6 +139,12 @@ void main() {
       expect(service.getWeeklyProgressComparison(), closeTo(500 / 28, 1e-9));
     });
 
+    test('getWeeklyCompletionRates mengembalikan persentase tiap minggu', () {
+      final rates = service.getWeeklyCompletionRates();
+      expect(rates.thisWeek, closeTo(2000 / 28, 1e-9)); // 20/28
+      expect(rates.lastWeek, closeTo(1500 / 28, 1e-9)); // 15/28
+    });
+
     test('bernilai negatif jika minggu ini lebih buruk', () {
       // Minggu ini 1/7, minggu lalu 7/7 → (1 - 7)/7 x 100 = -85,71...
       final turun = HabitModel(

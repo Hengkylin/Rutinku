@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import 'analytics_screen.dart';
 import 'calendar_screen.dart';
 import 'dashboard_screen.dart';
 import 'profile_screen.dart';
@@ -18,6 +19,7 @@ class MainScreen extends ConsumerWidget {
     final screens = const [
       DashboardScreen(),
       CalendarScreen(),
+      AnalyticsScreen(),
       ProfileScreen(),
     ];
 
@@ -38,6 +40,10 @@ class MainScreen extends ConsumerWidget {
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: 'Kalender',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_rounded),
+            label: 'Analitik',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

@@ -82,10 +82,18 @@ class AnalyticsService {
   /// (hari ke-1..7, termasuk hari ini) dikurangi 7 hari sebelumnya
   /// (hari ke-8..14). Positif = membaik, negatif = menurun.
   double getWeeklyProgressComparison() {
-    final thisWeek = _overallCompletionRate(startDaysAgo: 0, days: weekLength);
-    final lastWeek =
-        _overallCompletionRate(startDaysAgo: weekLength, days: weekLength);
-    return thisWeek - lastWeek;
+    final rates = getWeeklyCompletionRates();
+    return rates.thisWeek - rates.lastWeek;
+  }
+
+  /// Persentase penyelesaian gabungan (0–100) untuk 7 hari terakhir
+  /// ([thisWeek]) dan 7 hari sebelumnya ([lastWeek]).
+  ({double thisWeek, double lastWeek}) getWeeklyCompletionRates() {
+    return (
+      thisWeek: _overallCompletionRate(startDaysAgo: 0, days: weekLength),
+      lastWeek:
+          _overallCompletionRate(startDaysAgo: weekLength, days: weekLength),
+    );
   }
 
   /// Persentase (0–100) hari selesai untuk [habit] dalam [days] hari,
