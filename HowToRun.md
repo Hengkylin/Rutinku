@@ -9,6 +9,7 @@
 - **Check-in harian, mood refleksi, & streak** — tandai kebiasaan selesai, atur mode istirahat/refleksi mood, dan lihat perhitungan *streak* beruntun secara dinamis.
 - **Kamera / Visual Habit Journal ("Abadikan Momen")** — ambil foto bukti atau kenangan penyelesaian kebiasaan harian menggunakan kamera perangkat (`image_picker` & `path_provider`) yang disimpan ke penyimpanan aplikasi dan dapat dilihat pada riwayat kalender.
 - **Kalender / riwayat** — lihat riwayat check-in, catatan refleksi, dan foto momen per tanggal (`table_calendar`).
+- **Profil pengguna** — ubah nama (wajib, minimal 3 karakter) dan nomor telepon (opsional, angka minimal 10 digit); disimpan ke tabel Supabase `users` dan di-cache di perangkat.
 - **Penyimpanan lokal** — data kebiasaan disimpan secara persisten di perangkat dengan `SharedPreferences`.
 - **Pengingat notifikasi lokal** — notifikasi terjadwal harian sesuai zona waktu lokal pengguna (`flutter_local_notifications` & `timezone`).
 - **Supabase Cloud Sync (JSONB)** — pratinjau data cloud (*Fetch*), pencadangan data lokal ke cloud (*Backup* `upsert`), dan pemulihan data cloud ke perangkat (*Restore*) pada tabel PostgreSQL `user_data`, lengkap dengan penanganan *loading*, *empty*, *error*, dan tombol *retry*.
@@ -71,6 +72,9 @@ flutter run -d <device_id>
    - Ketuk ikon kamera pada kartu kebiasaan untuk menjalankan fitur **Abadikan Momen** (*Visual Habit Journal*) menggunakan kamera perangkat.
 3. **Cloud Sync (`SyncScreen`):**
    - Ketuk ikon *cloud sync* di bagian atas Dashboard untuk melihat data di Supabase, melakukan **Backup Data Lokal ke Cloud**, **Restore Cloud ke Perangkat Ini**, atau **Logout**.
+4. **Profil (`ProfileScreen`):**
+   - Buka tab **Profil** di navigasi bawah, isi **Nama Lengkap** dan **Nomor Telepon (Opsional)**, lalu tekan **Simpan**.
+   - Input yang tidak valid langsung ditandai di bawah field; jika penyimpanan gagal, pesan error tampil di SnackBar merah.
 
 > Saat pertama kali dibuka atau saat fitur terkait digunakan, aplikasi meminta izin notifikasi (Android 13+), izin alarm presisi (Android 12+/14+), serta izin kamera ketika mengambil foto momen. Jika izin **ditolak**, aplikasi tetap berjalan normal tanpa *crash*.
 
@@ -104,8 +108,11 @@ Konfigurasi berikut sudah diterapkan di project (tidak perlu diubah manual):
 ## 6. Pengujian Otomatis & Analisis Kode
 
 ```bash
-# Seluruh unit test & widget test (41 test)
+# Seluruh unit test & widget test (54 test)
 flutter test
+
+# Pengujian fitur Profil: aturan input (Validators) & form (loading, error, sukses) menggunakan FakeProfileRepository
+flutter test test/validators_test.dart test/profile_form_test.dart
 
 # Pengujian Supabase Cloud Sync (Fetch, Backup, Restore, data kosong, error, & JSON rusak) menggunakan MockSyncRepository (mocktail)
 flutter test test/api_sync_test.dart

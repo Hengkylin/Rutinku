@@ -20,6 +20,10 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 5. **Notifikasi Lokal & Visual Habit Journal:**
    * `NotificationService` menjadwalkan pengingat harian pada sistem operasi Android berdasarkan jam `reminderTime` tanpa bergantung pada *server push* eksternal.
    * `CameraHelper` menangkap foto melalui kamera perangkat dan menyimpannya secara permanen di direktori dokumen aplikasi, lalu menautkan path file ke `HabitRecord.momentImagePath`.
+6. **Profil Pengguna:** `ProfileScreen` (tab ketiga di `MainScreen` / `/profile`) memuat nilai awal dari cache lokal lalu menampilkan `ProfileForm`. Fitur ini tidak memakai Riverpod; repository dikirim lewat konstruktor agar mudah diganti saat pengujian. Tanggung jawab dipisah menjadi tiga bagian:
+   * **`ProfileForm`** — hanya mengurus input dan status UI (validasi field, *loading*, SnackBar error via `showAppSnackBar`).
+   * **`Validators`** — aturan input murni: normalisasi (trim), nama wajib minimal 3 karakter, telepon opsional berupa angka minimal 10 digit.
+   * **`ProfileRepository`** — hanya request API: `UPDATE` kolom `name` & `phone` pada tabel Supabase `users` untuk pengguna yang sedang login, lalu menyimpan cache lokal. Jika tabel `users` belum tersedia (kode `42P01` / `PGRST205`), request disimulasikan dengan `Future.delayed`. Error Auth/Postgrest diubah menjadi pesan `Exception` yang siap ditampilkan.
 
 ## 3. Skema Penyimpanan Data
 
@@ -40,10 +44,18 @@ Key utama: `rutinku_habits` (berisi string JSON array dari daftar `HabitModel`).
   * `note` (`String?`) — Catatan jurnal singkat pengguna.
   * `momentImagePath` (`String?`) — Path lokal foto hasil fitur *"Abadikan Momen"*.
 
+Cache profil: `rutinku_profile_name` dan `rutinku_profile_phone` (dihapus jika telepon dikosongkan).
+
 ### B. Database Cloud (Supabase PostgreSQL — Tabel `user_data`)
 Menggunakan strategi **Cloud Save JSONB** per pengguna:
 * `user_id` (`UUID`, Primary Key / Unique, berelasi dengan pengguna pada **Supabase Auth**).
 * `sync_data` (`JSONB`) — Menyimpan objek `{ "habits": "<localJsonString>" }` yang disinkronkan melalui `upsert(..., onConflict: 'user_id')`.
+
+### C. Database Cloud (Supabase PostgreSQL — Tabel `users`)
+Dipakai oleh fitur Profil:
+* `id` (`UUID`) — ID pengguna Supabase Auth (filter `eq('id', userId)`).
+* `name` (`text`) — Nama pengguna (sudah di-trim).
+* `phone` (`text`, *nullable*) — Nomor telepon; `null` jika dikosongkan.
 
 ## 4. Struktur Direktori Proyek
 
@@ -65,6 +77,7 @@ rutinku_flutter/
 │   │
 │   ├── repositories/                     # Lapisan akses data (Lokal & Cloud)
 │   │   ├── habit_repository.dart         # Operasi CRUD lokal di SharedPreferences & pemicu jadwal pengingat
+│   │   ├── profile_repository.dart       # Request UPDATE profil ke tabel Supabase `users` & cache lokal
 │   │   └── sync_repository.dart          # Operasi Fetch, Backup (upsert), & Restore JSONB ke Supabase
 │   │
 │   ├── notifiers/                        # Logika bisnis & State Management (Riverpod)
@@ -75,8 +88,9 @@ rutinku_flutter/
 │   │   ├── auth_service.dart             # Pembungkus Supabase Auth (login, register, resetPasswordForEmail, logout)
 │   │   └── notification_service.dart     # Singleton flutter_local_notifications & konfigurasi timezone
 │   │
-│   ├── utils/                            # Utilitas pembantu perangkat keras
-│   │   └── camera_helper.dart            # Pengambilan & penyimpanan foto permanen (image_picker & path_provider)
+│   ├── utils/                            # Utilitas pembantu (perangkat keras & aturan input)
+│   │   ├── camera_helper.dart            # Pengambilan & penyimpanan foto permanen (image_picker & path_provider)
+│   │   └── validators.dart               # Aturan input murni (normalisasi, validasi nama & telepon)
 │   │
 │   ├── screens/                          # Halaman antarmuka utama (Presentation Layer)
 │   │   ├── login_screen.dart             # Halaman Login (/login)
@@ -85,6 +99,7 @@ rutinku_flutter/
 │   │   ├── main_screen.dart              # Kerangka navigasi bawah (Bottom NavigationBar)
 │   │   ├── dashboard_screen.dart         # Halaman utama daftar kebiasaan, metrik harian, & Abadikan Momen
 │   │   ├── calendar_screen.dart          # Halaman kalender riwayat check-in & galeri momen harian
+│   │   ├── profile_screen.dart           # Halaman Profil (email akun & wadah ProfileForm)
 │   │   ├── sync_screen.dart              # Halaman Cloud Sync (status akun, Backup, Restore, & Logout)
 │   │   └── template_screen.dart          # Halaman katalog templat kebiasaan siap pakai
 │   │
@@ -94,14 +109,18 @@ rutinku_flutter/
 │       ├── reflection_bottom_sheet.dart  # Bottom sheet refleksi mood & mode istirahat
 │       ├── habit_card.dart               # Kartu item kebiasaan harian
 │       ├── app_text_field.dart           # Komponen input teks kustom
+│       ├── app_snackbar.dart             # Helper SnackBar seragam (error merah / sukses hijau)
+│       ├── profile_form.dart             # Form profil: input & status UI (loading, error)
 │       └── primary_button.dart           # Komponen tombol aksi utama
 │
-├── test/                                 # Pengujian otomatis (41 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (54 Unit & Widget Test)
 │   ├── api_sync_test.dart                # Unit test Cloud Sync & validasi model (MockSyncRepository / mocktail)
 │   ├── sync_screen_test.dart             # Widget test state UI SyncScreen
 │   ├── checkin_test.dart                 # Unit test CRUD, SharedPreferences, streak, mood, & habit stacking
 │   ├── edge_cases_test.dart              # Widget/unit test validasi input, empty state, & izin notifikasi aman
 │   ├── template_screen_test.dart         # Widget test alur pemilihan templat kebiasaan
+│   ├── validators_test.dart              # Unit test aturan input profil (normalisasi, nama, telepon)
+│   ├── profile_form_test.dart            # Widget test ProfileForm (validasi, loading, sukses, error) dengan FakeProfileRepository
 │   └── widget_test.dart                  # Widget test Dashboard loading, empty state, & validasi form
 │
 └── pubspec.yaml                          # Konfigurasi dependensi package Flutter
