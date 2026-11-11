@@ -190,9 +190,13 @@ class HabitModel {
     return copyWith(records: updatedRecords);
   }
 
-  int get streakCount {
+  int get streakCount => streakCountOn(DateTime.now());
+
+  /// Streak dihitung mundur dari tanggal [date] (bukan selalu hari ini),
+  /// agar bisa dipakai analitik dengan tanggal acuan tetap.
+  int streakCountOn(DateTime date) {
     int streak = 0;
-    DateTime checkDate = DateTime.now();
+    DateTime checkDate = date;
     // Jika hari ini belum selesai atau sedang libur, toleransi mundur mulai dari kemarin
     if (!isCompletedOn(checkDate)) {
       checkDate = checkDate.subtract(const Duration(days: 1));
