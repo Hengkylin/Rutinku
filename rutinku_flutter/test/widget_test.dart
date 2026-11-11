@@ -55,6 +55,7 @@ void main() {
     await tester.pumpAndSettle(); // Tunggu bottom sheet muncul
 
     // Tekan tombol simpan saat teks kosong
+    await tester.ensureVisible(find.text('Simpan'));
     await tester.tap(find.text('Simpan'));
     await tester.pump(); // Render ulang UI untuk menampilkan error
 

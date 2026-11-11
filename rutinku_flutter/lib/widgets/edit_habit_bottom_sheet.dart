@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/habit_notifier.dart';
+import '../utils/validators.dart';
+import 'habit_target_fields.dart';
 
 class EditHabitBottomSheet extends ConsumerStatefulWidget {
   final HabitModel habit;
@@ -22,6 +24,8 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _categoryController;
   late final TextEditingController _reminderController;
+  late final TextEditingController _targetController;
+  late final TextEditingController _unitController;
   String? _selectedParentHabitId;
   bool _isSubmitting = false;
 
@@ -34,6 +38,9 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
         TextEditingController(text: widget.habit.category ?? '');
     _reminderController =
         TextEditingController(text: widget.habit.reminderTime ?? '');
+    _targetController =
+        TextEditingController(text: widget.habit.targetValue.toString());
+    _unitController = TextEditingController(text: widget.habit.unit ?? '');
     _selectedParentHabitId = widget.habit.parentHabitId;
   }
 
@@ -42,6 +49,8 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
     _titleController.dispose();
     _categoryController.dispose();
     _reminderController.dispose();
+    _targetController.dispose();
+    _unitController.dispose();
     super.dispose();
   }
 
@@ -57,9 +66,9 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
             _categoryController.text.trim(),
             _reminderController.text.trim(),
             parentHabitId: _selectedParentHabitId,
-            // Form belum punya field target; pertahankan nilai tersimpan.
-            targetValue: widget.habit.targetValue,
-            unit: widget.habit.unit,
+            targetValue: Validators.parseTargetValue(_targetController.text) ??
+                Validators.minTargetValue,
+            unit: Validators.normalizeOptional(_unitController.text),
           );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -265,6 +274,15 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
                 enabled: !_isSubmitting,
                 decoration:
                     _inputDecoration(hintText: 'Contoh: Pengembangan diri'),
+              ),
+              const SizedBox(height: 18),
+
+              // Target Harian & Satuan (Progressive Habit)
+              HabitTargetFields(
+                targetController: _targetController,
+                unitController: _unitController,
+                decoration: _inputDecoration,
+                enabled: !_isSubmitting,
               ),
               const SizedBox(height: 18),
 

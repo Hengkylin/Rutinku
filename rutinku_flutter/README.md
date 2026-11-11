@@ -21,6 +21,7 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 6. **Android *Local Push Notifications*:** Sistem pengingat harian terjadwal (`flutter_local_notifications` & `timezone`) yang memunculkan notifikasi pada jam tertentu meskipun aplikasi sedang tertutup (*background*).
 7. **Kalender & Ringkasan Riwayat Kebiasaan:** Halaman kalender interaktif (`table_calendar`) serta indikator progres mingguan untuk memantau riwayat *check-in*, catatan refleksi, dan foto momen per tanggal.
 8. **Profil Pengguna:** Halaman profil (tab **Profil** / `/profile`) yang menampilkan email akun serta form ubah **nama** (wajib, minimal 3 karakter) dan **nomor telepon** (opsional, angka minimal 10 digit). Data dikirim ke tabel Supabase `users` dan disimpan juga di perangkat (`SharedPreferences`) sebagai nilai awal form.
+9. ***Progressive Habit Tracking* (Target Angka Harian):** Kebiasaan dapat diberi **target harian** dan **satuan** (mis. 8 gelas, 30 menit, 10 halaman). Kartu kebiasaan menampilkan progres (mis. `3 / 8 gelas`) dengan tombol **[+]** untuk menambah 1; begitu target tercapai, tombol berganti menjadi centang hijau dan *streak* ikut dihitung.
 
 ## Fitur yang Tidak Dikerjakan
 1. **Pembuatan API Backend Kustom dari Nol:** Aplikasi tidak membangun server *backend* mandiri (seperti Node.js/Express) atau *Remote Push Notification Server*, melainkan memanfaatkan layanan BaaS **Supabase** (Auth & PostgreSQL JSONB) dan *Local Notifications* agar pengembangan lebih fokus dan andal.
@@ -32,7 +33,7 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru, melakukan *login*, meminta tautan *reset password*, serta memperoleh sesi akses yang terisolasi untuk data akun miliknya sendiri melalui Supabase Auth.
 2. **Persistensi Lokal & Sinkronisasi Cloud Sukses:** Data kebiasaan tersimpan utuh di perangkat meskipun aplikasi ditutup, serta operasi *Backup*, *Fetch*, dan *Restore* ke *Cloud Database* Supabase berjalan lancar sehingga data tidak hilang saat pengguna masuk di perangkat Android lain.
 3. **Notifikasi *Background* & Kamera Berfungsi Aman:** Pengingat lokal muncul sesuai jadwal yang ditentukan pengguna dan fitur *"Abadikan Momen"* berhasil menyimpan foto jurnal kebiasaan tanpa menyebabkan *crash* meskipun izin perangkat ditolak atau aksi dibatalkan.
-4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **54 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
+4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **72 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
 
 ---
 

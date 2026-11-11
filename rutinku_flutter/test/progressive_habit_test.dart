@@ -101,6 +101,44 @@ void main() {
       expect(habit.records.length, 1);
     });
 
+    test('toggleCheckIn membalik status via copyWith tanpa menghapus data', () {
+      final habit = HabitModel(
+        id: '1',
+        title: 'Olahraga',
+        records: [
+          HabitRecord(date: dateKey(now), status: 'completed', mood: '😊'),
+        ],
+      );
+
+      final off = habit.toggleCheckIn(now);
+      expect(off.todayRecord?.status, 'pending');
+      expect(off.todayRecord?.mood, '😊');
+      expect(off.isCompletedToday, false);
+
+      final on = off.toggleCheckIn(now);
+      expect(on.todayRecord?.status, 'completed');
+      expect(on.todayRecord?.mood, '😊');
+    });
+
+    test('toggleCheckIn habit progresif ditolak sebelum target tercapai', () {
+      final belowTarget = HabitModel(
+        id: '1',
+        title: 'Minum Air',
+        targetValue: 3,
+        records: [
+          HabitRecord(date: dateKey(now), status: 'pending', currentValue: 2),
+        ],
+      );
+      expect(identical(belowTarget.toggleCheckIn(now), belowTarget), true);
+
+      final noRecord = HabitModel(id: '2', title: 'Baca', targetValue: 3);
+      expect(identical(noRecord.toggleCheckIn(now), noRecord), true);
+
+      final reached = belowTarget.incrementProgress(now).toggleCheckIn(now);
+      expect(reached.todayRecord?.status, 'pending');
+      expect(reached.todayRecord?.currentValue, 3);
+    });
+
     test('incrementProgress target 1 langsung completed', () {
       final habit =
           HabitModel(id: '1', title: 'Olahraga').incrementProgress(now);

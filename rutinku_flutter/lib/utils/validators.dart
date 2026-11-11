@@ -5,6 +5,7 @@ class Validators {
 
   static const int minNameLength = 3;
   static const int minPhoneDigits = 10;
+  static const int minTargetValue = 1;
   static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
 
   /// Menormalkan input teks: `null` dianggap string kosong, spasi di
@@ -39,6 +40,18 @@ class Validators {
     if (phone.length < minPhoneDigits) {
       return 'Nomor telepon minimal $minPhoneDigits digit';
     }
+    return null;
+  }
+
+  /// Mengubah input target harian menjadi angka; `null` jika bukan angka bulat.
+  static int? parseTargetValue(String? value) => int.tryParse(normalize(value));
+
+  /// Validasi target harian: wajib diisi, angka bulat, minimal [minTargetValue].
+  static String? validateTargetValue(String? value) {
+    if (normalize(value).isEmpty) return 'Target wajib diisi';
+    final target = parseTargetValue(value);
+    if (target == null) return 'Target harus berupa angka';
+    if (target < minTargetValue) return 'Target minimal $minTargetValue';
     return null;
   }
 }

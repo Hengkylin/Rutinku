@@ -92,19 +92,10 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     if (habitIndex == -1) return;
 
     final currentHabit = currentList[habitIndex];
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final updatedRecords = List<HabitRecord>.from(currentHabit.records);
-    final existingIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
-
-    if (existingIndex != -1 && updatedRecords[existingIndex].status == 'completed') {
-      updatedRecords.removeAt(existingIndex);
-    } else if (existingIndex == -1) {
-      updatedRecords.add(HabitRecord(date: dateStr, status: 'completed'));
-    } else {
-      updatedRecords[existingIndex] = HabitRecord(date: dateStr, status: 'completed');
-    }
-
-    final updatedHabit = currentHabit.copyWith(records: updatedRecords);
+    // Logika toggle (copyWith, aturan target progresif) ada di HabitModel,
+    // dipakai sama persis oleh repository saat menyimpan.
+    final updatedHabit = currentHabit.toggleCheckIn(date);
+    if (identical(updatedHabit, currentHabit)) return; // ditolak: target belum tercapai
 
     // Optimistic UI Update: perbarui state AsyncValue.data secara langsung di awal
     final updatedList = List<HabitModel>.from(currentList);

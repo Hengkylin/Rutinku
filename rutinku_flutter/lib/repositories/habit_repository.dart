@@ -130,23 +130,10 @@ class HabitRepository {
   Future<void> toggleCheckIn(String id, DateTime date) async {
     final habits = await fetchHabits();
     final index = habits.indexWhere((h) => h.id == id);
-    if (index != -1) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final habit = habits[index];
-      final updatedRecords = List<HabitRecord>.from(habit.records);
-      final existingIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+    if (index == -1) return;
 
-      if (existingIndex != -1 && updatedRecords[existingIndex].status == 'completed') {
-        updatedRecords.removeAt(existingIndex);
-      } else if (existingIndex == -1) {
-        updatedRecords.add(HabitRecord(date: dateStr, status: 'completed'));
-      } else {
-        updatedRecords[existingIndex] = HabitRecord(date: dateStr, status: 'completed');
-      }
-
-      habits[index] = habit.copyWith(records: updatedRecords);
-      await _saveHabitsToStorage(habits);
-    }
+    habits[index] = habits[index].toggleCheckIn(date);
+    await _saveHabitsToStorage(habits);
   }
 
   // UPDATE (Progressive Habit): Menambah progres angka harian (+1) dan simpan ke Storage

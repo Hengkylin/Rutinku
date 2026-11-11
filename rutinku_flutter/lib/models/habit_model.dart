@@ -160,6 +160,36 @@ class HabitModel {
     return copyWith(records: updatedRecords);
   }
 
+  /// Mengembalikan salinan habit dengan status check-in tanggal [date]
+  /// dibalik (completed <-> pending) via `copyWith`, sehingga `currentValue`,
+  /// mood, catatan, dan foto tetap utuh.
+  /// Habit progresif (`targetValue > 1`) tidak bisa ditandai 'completed'
+  /// sebelum `currentValue` mencapai target; dalam kasus itu habit
+  /// dikembalikan tanpa perubahan.
+  /// Dipakai bersama oleh notifier (optimistic UI) dan repository (persisten).
+  HabitModel toggleCheckIn(DateTime date) {
+    final dateStr = _dateKey(date);
+    final updatedRecords = List<HabitRecord>.from(records);
+    final index = updatedRecords.indexWhere((r) => r.date == dateStr);
+    final existing = index == -1 ? null : updatedRecords[index];
+
+    if (existing?.status == 'completed') {
+      updatedRecords[index] = existing!.copyWith(status: 'pending');
+      return copyWith(records: updatedRecords);
+    }
+
+    final reachedTarget =
+        targetValue <= 1 || (existing?.currentValue ?? 0) >= targetValue;
+    if (!reachedTarget) return this;
+
+    if (existing == null) {
+      updatedRecords.add(HabitRecord(date: dateStr, status: 'completed'));
+    } else {
+      updatedRecords[index] = existing.copyWith(status: 'completed');
+    }
+    return copyWith(records: updatedRecords);
+  }
+
   int get streakCount {
     int streak = 0;
     DateTime checkDate = DateTime.now();

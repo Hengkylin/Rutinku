@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
+import '../notifiers/habit_notifier.dart';
+import 'app_snackbar.dart';
 import 'edit_habit_bottom_sheet.dart';
 
-class HabitCard extends StatelessWidget {
+class HabitCard extends ConsumerWidget {
   final HabitModel habit;
   final String? parentName;
   final VoidCallback onToggle;
@@ -48,10 +51,10 @@ class HabitCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final todayRecord = habit.todayRecord;
     final status = todayRecord?.status;
-    final isCompleted = status == 'completed';
+    final isCompleted = habit.isCompletedOn(DateTime.now());
     final isSkipped = status == 'skipped';
     final isRest = status == 'rest';
     final todayMood = todayRecord?.mood;
@@ -353,45 +356,123 @@ class HabitCard extends StatelessWidget {
               ),
             ),
 
-            // 3. Tombol Status / Check-in Kanan
-            GestureDetector(
-              onTap: onToggle,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? const Color(0xFFD9F99D)
-                      : (isRest
-                          ? const Color(0xFFE2E8F0)
-                          : (isSkipped
-                              ? const Color(0xFFFEE2E2)
-                              : Colors.grey.shade100)),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isCompleted
-                      ? Icons.check
-                      : (isRest
-                          ? Icons.hotel_outlined
-                          : (isSkipped
-                              ? Icons.skip_next_outlined
-                              : Icons.check)),
-                  color: isCompleted
-                      ? Colors.black87
-                      : (isRest
-                          ? const Color(0xFF475569)
-                          : (isSkipped
-                              ? const Color(0xFFDC2626)
-                              : Colors.grey.shade400)),
-                  size: 22,
-                ),
-              ),
-            ),
+            // 3. Tombol Kanan: [+] untuk habit progresif, check-in untuk biasa
+            if (habit.targetValue > 1)
+              _buildProgressAction(context, ref, todayRecord, isCompleted)
+            else
+              _buildCheckInButton(isCompleted, isRest, isSkipped),
           ],
         ),
       ),
     );
+  }
+
+  /// Tombol check-in biasa (target harian = 1).
+  Widget _buildCheckInButton(bool isCompleted, bool isRest, bool isSkipped) {
+    return GestureDetector(
+      onTap: onToggle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: isCompleted
+              ? const Color(0xFFD9F99D)
+              : (isRest
+                  ? const Color(0xFFE2E8F0)
+                  : (isSkipped
+                      ? const Color(0xFFFEE2E2)
+                      : Colors.grey.shade100)),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          isCompleted
+              ? Icons.check
+              : (isRest
+                  ? Icons.hotel_outlined
+                  : (isSkipped ? Icons.skip_next_outlined : Icons.check)),
+          color: isCompleted
+              ? Colors.black87
+              : (isRest
+                  ? const Color(0xFF475569)
+                  : (isSkipped
+                      ? const Color(0xFFDC2626)
+                      : Colors.grey.shade400)),
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  /// Progres angka (mis. "3 / 8 gelas") + tombol [+]. Saat target tercapai,
+  /// tombol [+] diganti ikon centang hijau.
+  Widget _buildProgressAction(
+    BuildContext context,
+    WidgetRef ref,
+    HabitRecord? todayRecord,
+    bool isCompleted,
+  ) {
+    final current = todayRecord?.currentValue ?? 0;
+    final unit = habit.unit;
+    final progressText =
+        '$current / ${habit.targetValue}${unit == null ? '' : ' $unit'}';
+    const doneColor = Color(0xFF22C55E);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          progressText,
+          key: Key('habit_progress_${habit.id}'),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isCompleted ? doneColor : const Color(0xFF475569),
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (isCompleted)
+          Container(
+            key: Key('habit_done_${habit.id}'),
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: doneColor,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, color: Colors.white, size: 22),
+          )
+        else
+          Material(
+            color: Colors.grey.shade100,
+            shape: const CircleBorder(),
+            child: InkWell(
+              key: Key('habit_increment_${habit.id}'),
+              customBorder: const CircleBorder(),
+              onTap: () => _incrementProgress(context, ref),
+              child: const SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(Icons.add, color: Color(0xFF1E293B), size: 22),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _incrementProgress(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref
+          .read(habitNotifierProvider.notifier)
+          .incrementHabitProgress(habit.id, DateTime.now());
+    } catch (e) {
+      if (!context.mounted) return;
+      showAppSnackBar(
+        context,
+        e.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+    }
   }
 }

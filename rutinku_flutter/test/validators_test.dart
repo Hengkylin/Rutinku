@@ -59,5 +59,15 @@ void main() {
       expect(Validators.validatePhone('  081234567890  '), isNull);
     });
   });
+
+  group('Validators.validateTargetValue', () {
+    test('wajib diisi, harus angka bulat, dan minimal 1', () {
+      expect(Validators.validateTargetValue(''), 'Target wajib diisi');
+      expect(Validators.validateTargetValue('abc'), 'Target harus berupa angka');
+      expect(Validators.validateTargetValue('0'), 'Target minimal 1');
+      expect(Validators.validateTargetValue(' 8 '), isNull);
+      expect(Validators.parseTargetValue(' 8 '), 8);
+    });
+  });
 }
 

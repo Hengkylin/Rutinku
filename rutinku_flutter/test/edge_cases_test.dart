@@ -30,6 +30,7 @@ void main() {
       await tester.pumpWidget(wrap(const AddHabitBottomSheet()));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('Simpan'));
       await tester.tap(find.text('Simpan'));
       await tester.pump();
 
@@ -41,6 +42,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, '     ');
+      await tester.ensureVisible(find.text('Simpan'));
       await tester.tap(find.text('Simpan'));
       await tester.pump();
 
@@ -52,6 +54,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, '  ab  ');
+      await tester.ensureVisible(find.text('Simpan'));
       await tester.tap(find.text('Simpan'));
       await tester.pump();
 
@@ -64,6 +67,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, 'Minum Air');
+      await tester.ensureVisible(find.text('Simpan'));
       await tester.tap(find.text('Simpan'));
       await tester.pump();
 
@@ -86,6 +90,7 @@ void main() {
       expect(find.text('Baca Buku'), findsOneWidget);
 
       await tester.enterText(find.byType(TextFormField).first, '');
+      await tester.ensureVisible(find.text('Simpan perubahan'));
       await tester.tap(find.text('Simpan perubahan'));
       await tester.pump();
 
@@ -97,6 +102,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, '   ');
+      await tester.ensureVisible(find.text('Simpan perubahan'));
       await tester.tap(find.text('Simpan perubahan'));
       await tester.pump();
 

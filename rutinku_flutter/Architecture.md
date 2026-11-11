@@ -16,7 +16,8 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 1. **Autentikasi 3 Halaman (Supabase Auth):** Aplikasi memeriksa sesi aktif (`Supabase.instance.client.auth.currentUser`). Jika pengguna belum masuk (`currentUser == null`), aplikasi mengarahkan ke `LoginScreen` (`/login`), dengan dukungan navigasi ke `RegisterScreen` (`/register` via `signUp`) dan `ForgotPasswordScreen` (`/forgot-password` via `resetPasswordForEmail`). Sesi login dikelola secara otomatis oleh SDK `supabase_flutter`.
 2. **Manajemen Kebiasaan Lokal (CRUD & Optimistic UI):** Seluruh operasi pembuatan, pembaruan, *check-in* harian, pencatatan refleksi mood/istirahat, dan penghapusan kebiasaan dikelola secara reaktif oleh `HabitNotifier` dan disimpan secara persisten di penyimpanan lokal menggunakan `SharedPreferences` (key: `rutinku_habits`).
 3. **Sinkronisasi Cloud (Supabase JSONB):** Melalui `SyncScreen` → `SyncNotifier` → `SyncRepository`, pengguna dapat menarik pratinjau data dari *cloud* (**Fetch**), mencadangkan seluruh JSON kebiasaan lokal ke tabel PostgreSQL `user_data` menggunakan operasi `upsert` (**Backup**), atau memulihkan data dari *cloud* ke `SharedPreferences` lokal (**Restore**).
-4. **Kalkulasi Streak Dinamis:** `HabitModel` menghitung jumlah *streak* harian secara dinamis berdasarkan riwayat `records` (`HabitRecord`), termasuk toleransi hari berjalan (*grace period*) dan pelestarian *streak* pada hari istirahat (`status: 'rest'`).
+4. **Kalkulasi Streak Dinamis:** `HabitModel` menghitung jumlah *streak* harian secara dinamis berdasarkan riwayat `records` (`HabitRecord`), termasuk toleransi hari berjalan (*grace period*) dan pelestarian *streak* pada hari istirahat (`status: 'rest'`). Satu hari dianggap selesai lewat `isCompletedOn()`: target 1 → status `'completed'`; target > 1 → `currentValue >= targetValue`.
+   * **Progressive Habit Tracking:** logika perubahan record ditulis sekali di `HabitModel` (`incrementProgress` dan `toggleCheckIn`, keduanya memakai `copyWith` sehingga mood/catatan/foto/progres tidak hilang), lalu dipakai bersama oleh `HabitNotifier` (*optimistic UI*) dan `HabitRepository` (persisten). Tombol **[+]** di `HabitCard` memanggil `incrementHabitProgress`; record baru berstatus `'pending'` dan otomatis menjadi `'completed'` saat target tercapai. `toggleCheckIn` membalik status `completed` ↔ `pending` dan menolak menandai selesai habit progresif yang belum mencapai target.
 5. **Notifikasi Lokal & Visual Habit Journal:**
    * `NotificationService` menjadwalkan pengingat harian pada sistem operasi Android berdasarkan jam `reminderTime` tanpa bergantung pada *server push* eksternal.
    * `CameraHelper` menangkap foto melalui kamera perangkat dan menyimpannya secara permanen di direktori dokumen aplikasi, lalu menautkan path file ke `HabitRecord.momentImagePath`.
@@ -36,10 +37,13 @@ Key utama: `rutinku_habits` (berisi string JSON array dari daftar `HabitModel`).
   * `category` (`String?`) — Kategori kebiasaan (mis. Kesehatan, Belajar, Kehidupan).
   * `reminderTime` (`String?`) — Jam pengingat harian dalam format `"HH:mm"`.
   * `parentHabitId` (`String?`) — Referensi ID kebiasaan induk untuk fitur *Habit Stacking*.
+  * `targetValue` (`int`, default `1`) — Target angka harian (*Progressive Habit*); data lama tanpa field ini dibaca sebagai `1`.
+  * `unit` (`String?`) — Satuan target (mis. `"gelas"`, `"menit"`, `"halaman"`).
   * `records` (`List<HabitRecord>`) — Riwayat pelaksanaan harian.
 * **`HabitRecord`:**
   * `date` (`String`) — Tanggal pencatatan (`yyyy-MM-dd`).
-  * `status` (`String`) — Status pelaksanaan (`'completed'`, `'skipped'`, atau `'rest'`).
+  * `status` (`String`) — Status pelaksanaan (`'completed'`, `'pending'`, `'skipped'`, atau `'rest'`).
+  * `currentValue` (`int`, default `0`) — Progres angka pada tanggal tersebut.
   * `mood` (`String?`) — Emoji suasana hati saat refleksi.
   * `note` (`String?`) — Catatan jurnal singkat pengguna.
   * `momentImagePath` (`String?`) — Path lokal foto hasil fitur *"Abadikan Momen"*.
@@ -107,13 +111,14 @@ rutinku_flutter/
 │       ├── add_habit_bottom_sheet.dart   # Bottom sheet tambah kebiasaan & habit stacking
 │       ├── edit_habit_bottom_sheet.dart  # Bottom sheet ubah/hapus kebiasaan
 │       ├── reflection_bottom_sheet.dart  # Bottom sheet refleksi mood & mode istirahat
-│       ├── habit_card.dart               # Kartu item kebiasaan harian
+│       ├── habit_card.dart               # Kartu item kebiasaan harian (check-in / progres [+] untuk target > 1)
+│       ├── habit_target_fields.dart      # Input Target harian & Satuan (dipakai form tambah & edit)
 │       ├── app_text_field.dart           # Komponen input teks kustom
 │       ├── app_snackbar.dart             # Helper SnackBar seragam (error merah / sukses hijau)
 │       ├── profile_form.dart             # Form profil: input & status UI (loading, error)
 │       └── primary_button.dart           # Komponen tombol aksi utama
 │
-├── test/                                 # Pengujian otomatis (54 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (72 Unit & Widget Test)
 │   ├── api_sync_test.dart                # Unit test Cloud Sync & validasi model (MockSyncRepository / mocktail)
 │   ├── sync_screen_test.dart             # Widget test state UI SyncScreen
 │   ├── checkin_test.dart                 # Unit test CRUD, SharedPreferences, streak, mood, & habit stacking
@@ -121,6 +126,8 @@ rutinku_flutter/
 │   ├── template_screen_test.dart         # Widget test alur pemilihan templat kebiasaan
 │   ├── validators_test.dart              # Unit test aturan input profil (normalisasi, nama, telepon)
 │   ├── profile_form_test.dart            # Widget test ProfileForm (validasi, loading, sukses, error) dengan FakeProfileRepository
+│   ├── progressive_habit_test.dart       # Unit test Progressive Habit (model, repository, notifier, toggle)
+│   ├── progressive_habit_ui_test.dart    # Widget test HabitCard [+] & form Target/Satuan
 │   └── widget_test.dart                  # Widget test Dashboard loading, empty state, & validasi form
 │
 └── pubspec.yaml                          # Konfigurasi dependensi package Flutter

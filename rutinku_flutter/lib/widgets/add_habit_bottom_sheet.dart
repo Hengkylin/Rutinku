@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../notifiers/habit_notifier.dart';
+import '../utils/validators.dart';
+import 'habit_target_fields.dart';
 
 class AddHabitBottomSheet extends ConsumerStatefulWidget {
   final String? initialTitle;
@@ -23,6 +25,8 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _categoryController;
   late final TextEditingController _reminderController;
+  final _targetController = TextEditingController(text: '1');
+  final _unitController = TextEditingController();
   String? _selectedParentHabitId;
   bool _isSubmitting = false;
 
@@ -41,6 +45,8 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
     _titleController.dispose();
     _categoryController.dispose();
     _reminderController.dispose();
+    _targetController.dispose();
+    _unitController.dispose();
     super.dispose();
   }
 
@@ -59,6 +65,9 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
                 ? null
                 : _reminderController.text.trim(),
             parentHabitId: _selectedParentHabitId,
+            targetValue: Validators.parseTargetValue(_targetController.text) ??
+                Validators.minTargetValue,
+            unit: Validators.normalizeOptional(_unitController.text),
           );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -198,6 +207,15 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
                 controller: _categoryController,
                 enabled: !_isSubmitting,
                 decoration: _inputDecoration(hintText: 'Contoh: Kesehatan'),
+              ),
+              const SizedBox(height: 18),
+
+              // Target Harian & Satuan (Progressive Habit)
+              HabitTargetFields(
+                targetController: _targetController,
+                unitController: _unitController,
+                decoration: _inputDecoration,
+                enabled: !_isSubmitting,
               ),
               const SizedBox(height: 18),
 
