@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/app_logger.dart';
+
 /// Layer Data profil pengguna: hanya bertanggung jawab atas request ke
 /// Supabase (tabel `users`) dan cache lokal. Validasi & normalisasi input
 /// dilakukan di layer UI menggunakan `Validators` sebelum repository dipanggil.
@@ -12,6 +14,8 @@ class ProfileRepository {
   /// Kode error Postgres/PostgREST saat tabel belum tersedia di skema.
   static const Set<String> _missingTableCodes = {'42P01', 'PGRST205'};
   static const Duration _simulatedDelay = Duration(milliseconds: 500);
+
+  static final _log = AppLogger.get('profil');
 
   ProfileRepository({this._client});
 
@@ -26,7 +30,9 @@ class ProfileRepository {
       final userId = _requireUserId();
       await _sendUpdateRequest(userId, name, phone);
       await _cacheProfile(name, phone);
-    } catch (e) {
+      _log.info('Profil diperbarui');
+    } catch (e, s) {
+      _log.warning('Gagal memperbarui profil', e, s);
       throw _toProfileException(e);
     }
   }
@@ -39,7 +45,8 @@ class ProfileRepository {
         name: prefs.getString(_prefNameKey),
         phone: prefs.getString(_prefPhoneKey),
       );
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Gagal membaca cache profil', e);
       return (name: null, phone: null);
     }
   }

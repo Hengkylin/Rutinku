@@ -76,7 +76,7 @@ flutter run -d <device_id>
    - **Password baru:** isi **Password Baru** dan **Konfirmasi Password Baru** (minimal 6 karakter dan harus sama), tekan **Simpan Password**, lalu aplikasi kembali ke Beranda.
 2. **Manajemen Kebiasaan & Abadikan Momen (`DashboardScreen`):**
    - Tekan tombol **`+`** untuk memilih templat kebiasaan atau membuat kebiasaan kustom (beserta jam pengingat opsional).
-   - Isi **Target harian** (default 1) dan **Satuan** (opsional, mis. "gelas") untuk kebiasaan progresif. Kebiasaan dengan target > 1 menampilkan progres `n / target satuan` dan tombol **[+]** di kartunya; setelah target tercapai tombol berganti menjadi centang hijau. Target 1 tetap memakai tombol centang biasa.
+   - Isi **Target harian** (default 1) dan **Satuan** (opsional, mis. "gelas") untuk kebiasaan progresif. Kebiasaan dengan target > 1 menampilkan progres `n / target satuan` dan tombol **[+]** di kartunya; setiap progres berhasil ditambah muncul popup **"Mantap!"** (tutup dengan **Lanjutkan**); setelah target tercapai tombol berganti menjadi centang hijau. Target 1 tetap memakai tombol centang biasa.
    - Ketuk ikon kamera pada kartu kebiasaan untuk menjalankan fitur **Abadikan Momen** (*Visual Habit Journal*) menggunakan kamera perangkat.
 3. **Cloud Sync (`SyncScreen`):**
    - Ketuk ikon *cloud sync* di bagian atas Dashboard untuk melihat data di Supabase, melakukan **Backup Data Lokal ke Cloud**, **Restore Cloud ke Perangkat Ini**, atau **Logout**.
@@ -144,8 +144,11 @@ Konfigurasi berikut sudah diterapkan di project (tidak perlu diubah manual):
 ## 6. Pengujian Otomatis & Analisis Kode
 
 ```bash
-# Seluruh unit test & widget test (116 test)
+# Seluruh unit test & widget test (133 test)
 flutter test
+
+# Pengujian sistem log: AppLogger (file, rotasi, error & stack trace, log Supabase, sensor data) & layar Log Aplikasi
+flutter test test/app_logger_test.dart test/log_viewer_screen_test.dart
 
 # Pengujian Autentikasi: AuthService (mock GoTrueClient), Lupa Password, Masukkan Kode (OTP), Password Baru, dialog verifikasi email, & pesan error link
 flutter test test/auth_service_test.dart test/auth_screens_test.dart
@@ -176,14 +179,49 @@ Daftar lengkap skenario pengujian dan hasil terakhir ada di [checklist_mvp.md](c
 
 ---
 
-## 7. Troubleshooting Singkat
+## 7. Build APK (Release Candidate)
+
+```bash
+cd rutinku_flutter
+flutter test && flutter analyze      # pastikan semua lulus sebelum build
+flutter build apk --release
+# Hasil: build/app/outputs/flutter-apk/app-release.apk
+
+# Pasang ke HP lewat kabel USB (data aplikasi tetap tersimpan)
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+* **Versi** diambil dari `version` di `pubspec.yaml` (saat ini `1.0.0-rc.1+3`: nama versi `1.0.0-rc.1`, *version code* `3`). Naikkan angka setelah `+` setiap membuat build baru agar bisa dipasang menimpa versi lama, dan ganti `rc.N` untuk RC berikutnya.
+* **Tanda tangan (signing):** build release saat ini masih ditandatangani dengan *debug key* (`android/app/build.gradle.kts`). Cukup untuk uji coba dan dibagikan ke penguji (salin APK ke HP lalu izinkan *instal dari sumber tidak dikenal*), tetapi **tidak bisa diunggah ke Google Play**. Untuk Play Store perlu keystore rilis sendiri dan `applicationId` selain `com.example.rutinku_flutter`.
+* **R8/shrinking:** build release memperkecil kode & resource. `android/app/src/main/res/raw/keep.xml` menjaga ikon notifikasi (`@mipmap/ic_launcher`) agar tidak terbuang; aturan ProGuard Gson untuk `flutter_local_notifications` (v19+) sudah otomatis.
+
+---
+
+## 8. Log Aplikasi (Menelusuri Masalah Saat Aplikasi Berjalan)
+
+Aplikasi mencatat kejadian penting ke **logcat** dan ke **file di perangkat**, termasuk pada APK release, sehingga masalah dari penguji bisa ditelusuri.
+
+**Yang dicatat:** baris pembuka setiap sesi (versi, mode build, versi Android), login/registrasi/reset password berhasil atau gagal (email disamarkan, mis. `h***@domain.com`), backup/restore/fetch cloud, kegagalan simpan/ubah rutinitas beserta error asli dan *stack trace*, jadwal pengingat notifikasi, error dari link email, error Flutter/aplikasi yang tidak tertangkap, serta log internal Supabase level INFO ke atas. **Tidak dicatat:** password, kode OTP, token.
+
+**Format baris:** `2026-11-12 09:15:02.123 WARNING [rutinku.auth] Login h***@mail.com: gagal` (waktu, level, sumber, pesan; error & stack trace di baris berikutnya).
+
+**Cara melihat:**
+1. **Di HP:** tab **Milikku → Log Aplikasi**. Gunakan ikon **salin** untuk menyalin seluruh log lalu kirim ke pengembang (chat/email), ikon **muat ulang**, atau ikon **hapus**. Jika belum bisa login, **tekan lama logo** di halaman Login untuk membuka Log Aplikasi.
+2. **Lewat kabel USB:** `adb logcat -s flutter` menampilkan baris log yang sama secara langsung.
+
+**Penyimpanan:** file `rutinku_log.txt` di folder dokumen aplikasi; saat melewati ±512 KB file lama menjadi `rutinku_log.txt.1` (total maksimal ±1 MB). Log ikut terhapus jika aplikasi di-*uninstall* atau datanya dibersihkan.
+
+---
+
+## 9. Troubleshooting Singkat
 
 | Masalah | Solusi |
 |---|---|
 | `NDK not found` / versi NDK tidak cocok | Install NDK `28.2.13676358` lewat SDK Manager. |
 | Error `Unsupported class file major version` | Pastikan `JAVA_HOME` memakai JDK 17. |
 | Error Kotlin incremental cache | Pastikan `kotlin.incremental=false` ada di `android/gradle.properties`, lalu `flutter clean && flutter pub get`. |
-| Notifikasi tidak muncul | Aktifkan izin notifikasi & alarm presisi untuk RutinKu di pengaturan perangkat. |
+| Notifikasi tidak muncul | Aktifkan izin notifikasi & alarm presisi untuk RutinKu di pengaturan perangkat. Cek **Log Aplikasi**: harus ada baris `Pengingat #… dijadwalkan`; jika ada `Gagal menjadwalkan pengingat`, error-nya tercatat di baris berikutnya. |
+| Penguji melaporkan masalah yang tidak bisa direproduksi | Minta penguji membuka **Milikku → Log Aplikasi**, tekan **salin**, lalu kirim isinya. Cocokkan versi pada baris `===== Aplikasi dimulai …`. |
 | Email reset password berisi link, bukan kode 6 digit | Template **Reset password** di Supabase belum diganti/disimpan. Ikuti [bagian 5](#5-catatan-konfigurasi-khusus-android) poin 5, lalu minta kode baru. |
 | Kode ditolak: *"Kode salah atau sudah kedaluwarsa"* | Pakai kode dari **email terbaru** (meminta kode baru membatalkan kode lama), masukkan sebelum kedaluwarsa, atau tekan **Kirim ulang kode**. |
 | *"email rate limit exceeded"* / *"you can only request this after N seconds"* | Batas layanan email bawaan Supabase (2 email/jam). Tunggu, atau pasang SMTP sendiri. |

@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../utils/validators.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/auth_input_decoration.dart';
+import 'log_viewer_screen.dart';
 import 'main_screen.dart';
 
 /// Halaman Login berbasis Supabase Auth.
@@ -89,23 +90,33 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: _navy,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _navy.withValues(alpha: 0.25),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                    // Tekan lama logo untuk membuka Log Aplikasi: jalan pintas
+                    // diagnosis masalah login sebelum pengguna bisa masuk.
+                    child: GestureDetector(
+                      key: const Key('login_logo'),
+                      onLongPress: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LogViewerScreen(),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.task_alt_rounded,
-                        size: 44,
-                        color: _lime,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: _navy,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _navy.withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.task_alt_rounded,
+                          size: 44,
+                          color: _lime,
+                        ),
                       ),
                     ),
                   ),

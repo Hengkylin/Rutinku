@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jangan buang resource ini saat R8/shrink resources di build release:
+     ikon notifikasi dipanggil lewat nama ('@mipmap/ic_launcher') oleh
+     flutter_local_notifications, sehingga tidak terdeteksi sebagai terpakai.
+     Lihat README flutter_local_notifications bagian "Release build configuration". -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@mipmap/ic_launcher,@drawable/*" />

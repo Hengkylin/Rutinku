@@ -11,6 +11,7 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
 * **Sistem Notifikasi Lokal:** `flutter_local_notifications` & `timezone` (penjadwalan pengingat harian sesuai zona waktu lokal pengguna).
 * **Kamera & Penyimpanan Media:** `image_picker` & `path_provider` (fitur *Visual Habit Journal* / *"Abadikan Momen"*).
 * **Kalender & Pengujian:** `table_calendar`, `intl`, serta `flutter_test` & `mocktail` untuk pengujian unit/widget terisolasi.
+* **Log & Diagnostik:** `logging` (logger bertingkat, juga dipakai Supabase) & `package_info_plus` (versi aplikasi di log).
 * **Visualisasi Data:** `fl_chart` (`BarChart` untuk grafik Komparasi Mingguan pada fitur *Habit Analytics*).
 
 ## 2. Alur Sistem (*System Flow*)
@@ -43,6 +44,12 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
    * **`authInputDecoration()`** (`widgets/auth_input_decoration.dart`) — gaya `TextFormField` seragam untuk kelima layar autentikasi (Login, Register, Lupa Password, Masukkan Kode, Password Baru).
    * **`AuthHeader`** (`widgets/auth_header.dart`) — header ikon + judul + deskripsi untuk layar Lupa Password, Masukkan Kode, dan Password Baru.
    * **`showAppSnackBar()`** (`widgets/app_snackbar.dart`) — SnackBar seragam (merah untuk error, hijau untuk sukses) di semua layar.
+9. **Log Aplikasi (Tracing saat Aplikasi Berjalan):** `AppLogger` (`services/app_logger.dart`) disiapkan paling awal di `main()` dan mendengarkan `Logger.root` dari package `logging`, sehingga log aplikasi (`rutinku.<area>`, mis. `rutinku.auth`, `rutinku.habit`, `rutinku.sync`, `rutinku.notifikasi`) dan log internal Supabase (`supabase.*`) tercatat di satu tempat.
+   * Setiap baris (`waktu LEVEL [sumber] pesan`, diikuti error & maksimal 15 baris *stack trace*) dicetak ke logcat dan ditulis ke `rutinku_log.txt` di folder dokumen aplikasi; file dirotasi ke `rutinku_log.txt.1` saat melewati ±512 KB.
+   * `installErrorHandlers()` memasang `FlutterError.onError` dan `PlatformDispatcher.instance.onError` sehingga error yang tidak tertangkap ikut tercatat (level SEVERE/SHOUT) tanpa menutup aplikasi. `logStartup()` mencatat versi (`package_info_plus`), mode build, dan versi OS di awal setiap sesi.
+   * Level minimum **INFO**: log FINE/FINEST Supabase (berisi URL *deep link* dengan kode) tidak pernah tersimpan. Password, kode OTP, dan token tidak dicatat; email disamarkan dengan `AppLogger.maskEmail()`. Supabase diinisialisasi dengan `debug: false` agar log tidak tercetak ganda.
+   * Lapisan data mencatat error asli sebelum diubah menjadi pesan untuk pengguna: `HabitNotifier._fail()` (rollback + log + pesan), `AuthService._traced()` (berhasil/gagal tiap aksi auth), `SyncNotifier` (fetch/backup/restore), `NotificationService` (izin & jadwal pengingat), `ProfileRepository`, `CameraHelper`, serta listener error auth di `App`.
+   * `LogViewerScreen` menampilkan log (maks. 1.500 baris terakhir), menyalin seluruh log ke clipboard, dan menghapusnya dengan konfirmasi. Dibuka dari **Milikku → Log Aplikasi** atau dengan menekan lama logo di `LoginScreen` (untuk masalah sebelum login).
 
 ## 3. Skema Penyimpanan Data
 
@@ -107,6 +114,7 @@ rutinku_flutter/
 │   │   └── sync_notifier.dart            # Notifier sinkronisasi cloud (Loading, Empty, Data, Error, Retry)
 │   │
 │   ├── services/                         # Layanan eksternal, sistem perangkat, & logika statistik
+│   │   ├── app_logger.dart               # AppLogger: log ke logcat + file berotasi, penangkap error tak tertangkap
 │   │   ├── analytics_service.dart        # AnalyticsService: statistik kebiasaan (konsistensi, hari terlewat, komparasi mingguan)
 │   │   ├── auth_service.dart             # Pembungkus Supabase Auth (login, register, resetPassword, verifyRecoveryCode, updatePassword, pesan error)
 │   │   └── notification_service.dart     # Singleton flutter_local_notifications & konfigurasi timezone
@@ -117,7 +125,8 @@ rutinku_flutter/
 │   │
 │   ├── screens/                          # Halaman antarmuka utama (Presentation Layer)
 │   │   ├── analytics_screen.dart         # Halaman Analitik (kartu ringkasan & BarChart komparasi mingguan)
-│   │   ├── login_screen.dart             # Halaman Login (/login)
+│   │   ├── log_viewer_screen.dart        # Halaman Log Aplikasi (lihat, salin, hapus log)
+│   │   ├── login_screen.dart             # Halaman Login (/login; tekan lama logo → Log Aplikasi)
 │   │   ├── register_screen.dart          # Halaman Registrasi akun baru + dialog verifikasi email (/register)
 │   │   ├── forgot_password_screen.dart   # Halaman Lupa Password, kirim kode reset 6 digit (/forgot-password)
 │   │   ├── verify_reset_code_screen.dart # Halaman Masukkan Kode (verifyOTP recovery & kirim ulang kode)
@@ -143,8 +152,11 @@ rutinku_flutter/
 │       └── primary_button.dart           # Komponen tombol aksi utama
 │
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
+├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (116 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (133 Unit & Widget Test)
+│   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
+│   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
 │   ├── analytics_screen_test.dart        # Widget test layar Analitik (empty state, kartu, grafik, warna selisih)
 │   ├── auth_service_test.dart            # Unit test AuthService (resetPassword, verifyRecoveryCode, updatePassword, pesan error) dengan mock GoTrueClient

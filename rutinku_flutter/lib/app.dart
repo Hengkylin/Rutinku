@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'routes/app_routes.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
+import 'services/app_logger.dart';
 import 'services/auth_service.dart';
 import 'widgets/app_snackbar.dart';
 
@@ -70,6 +71,9 @@ class _AppState extends State<App> {
 
   void _onAuthError(Object error) {
     final message = AuthService.linkErrorMessage(error);
+    // Semua error dicatat (termasuk yang tidak ditampilkan ke pengguna).
+    AppLogger.get('auth')
+        .warning('Error dari stream auth (ditampilkan: ${message != null})', error);
     if (message == null) return;
 
     final context = _navigatorKey.currentContext;

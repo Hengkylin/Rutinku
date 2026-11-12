@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/habit_model.dart';
 import '../repositories/habit_repository.dart';
+import '../services/app_logger.dart';
 
 final habitRepositoryProvider = Provider<HabitRepository>((ref) {
   return HabitRepository();
@@ -14,17 +15,43 @@ final habitNotifierProvider =
     });
 
 class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
+  static final _log = AppLogger.get('habit');
+
   late final HabitRepository _repository;
+
+  /// Membaca data dari repository; error asli dicatat ke log sebelum
+  /// diteruskan (UI menampilkan state error).
+  Future<List<HabitModel>> _fetchHabits() async {
+    try {
+      return await _repository.fetchHabits();
+    } catch (e, s) {
+      _log.severe('Gagal memuat rutinitas', e, s);
+      rethrow;
+    }
+  }
+
+  /// Mengembalikan state sebelumnya, mencatat error asli ke log, lalu
+  /// melempar [message] yang ramah pengguna.
+  Never _fail(
+    AsyncValue<List<HabitModel>> previousState,
+    String message,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    state = previousState;
+    _log.severe(message, error, stackTrace);
+    throw Exception(message);
+  }
 
   @override
   Future<List<HabitModel>> build() async {
     _repository = ref.read(habitRepositoryProvider);
-    return _repository.fetchHabits();
+    return _fetchHabits();
   }
 
   Future<void> retryFetch() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.fetchHabits());
+    state = await AsyncValue.guard(() => _fetchHabits());
   }
 
   Future<void> addHabit(
@@ -46,10 +73,9 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         targetValue: targetValue,
         unit: unit,
       );
-      state = await AsyncValue.guard(() => _repository.fetchHabits());
-    } catch (e) {
-      state = previousState;
-      throw Exception('Gagal menyimpan rutinitas');
+      state = await AsyncValue.guard(() => _fetchHabits());
+    } catch (e, s) {
+      _fail(previousState, 'Gagal menyimpan rutinitas', e, s);
     }
   }
 
@@ -75,10 +101,9 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         targetValue: targetValue,
         unit: unit,
       );
-      state = await AsyncValue.guard(() => _repository.fetchHabits());
-    } catch (e) {
-      state = previousState;
-      throw Exception('Gagal memperbarui rutinitas');
+      state = await AsyncValue.guard(() => _fetchHabits());
+    } catch (e, s) {
+      _fail(previousState, 'Gagal memperbarui rutinitas', e, s);
     }
   }
 
@@ -104,9 +129,10 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
 
     try {
       await _repository.toggleCheckIn(id, date);
-    } catch (e) {
+    } catch (e, s) {
       // Jika repository throw error, kembalikan state ke kondisi sebelumnya
       state = previousState;
+      _log.severe('Gagal mengubah check-in', e, s);
     }
   }
 
@@ -127,9 +153,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
 
     try {
       await _repository.incrementHabitProgress(id, date);
-    } catch (e) {
-      state = previousState;
-      throw Exception('Gagal memperbarui progres rutinitas');
+    } catch (e, s) {
+      _fail(previousState, 'Gagal memperbarui progres rutinitas', e, s);
     }
   }
 
@@ -190,10 +215,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         note: note,
         momentImagePath: momentImagePath,
       );
-    } catch (e) {
-      // Jika repository gagal, rollback state
-      state = previousState;
-      throw Exception('Gagal memperbarui catatan refleksi');
+    } catch (e, s) {
+      _fail(previousState, 'Gagal memperbarui catatan refleksi', e, s);
     }
   }
 
@@ -241,9 +264,8 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
 
     try {
       await _repository.saveMomentImage(id, targetDate, imagePath);
-    } catch (e) {
-      state = previousState;
-      throw Exception('Gagal menyimpan foto momen');
+    } catch (e, s) {
+      _fail(previousState, 'Gagal menyimpan foto momen', e, s);
     }
   }
 
@@ -253,10 +275,9 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     state = const AsyncValue.loading();
     try {
       await _repository.deleteHabit(id);
-      state = await AsyncValue.guard(() => _repository.fetchHabits());
-    } catch (e) {
-      state = previousState;
-      throw Exception('Gagal menghapus rutinitas');
+      state = await AsyncValue.guard(() => _fetchHabits());
+    } catch (e, s) {
+      _fail(previousState, 'Gagal menghapus rutinitas', e, s);
     }
   }
 
@@ -266,10 +287,9 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     state = const AsyncValue.loading();
     try {
       await _repository.restoreHabit(habit);
-      state = await AsyncValue.guard(() => _repository.fetchHabits());
-    } catch (e) {
-      state = previousState;
-      throw Exception('Gagal mengembalikan rutinitas');
+      state = await AsyncValue.guard(() => _fetchHabits());
+    } catch (e, s) {
+      _fail(previousState, 'Gagal mengembalikan rutinitas', e, s);
     }
   }
 }

@@ -2,7 +2,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'app_logger.dart';
+
 class NotificationService {
+  static final _log = AppLogger.get('notifikasi');
+
   NotificationService._internal();
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
@@ -37,8 +41,9 @@ class NotificationService {
         }
       }
       tz.setLocalLocation(tz.getLocation(locationName));
-    } catch (_) {
+    } catch (e) {
       // Fallback aman jika terjadi anomali sistem
+      _log.warning('Zona waktu tidak terdeteksi, memakai Asia/Jakarta', e);
       tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
     }
   }
@@ -67,8 +72,9 @@ class NotificationService {
     try {
       await _notificationsPlugin.initialize(settings: initSettings);
       _isInitialized = true;
-    } catch (_) {
+    } catch (e, s) {
       // Menangani environment tanpa native channel (misal saat flutter test)
+      _log.warning('Inisialisasi notifikasi gagal', e, s);
     }
   }
 
@@ -84,8 +90,9 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidImplementation?.requestNotificationsPermission();
-    } catch (_) {
+    } catch (e) {
       // Izin ditolak / environment non-mobile (test): lanjutkan tanpa crash
+      _log.warning('Permintaan izin notifikasi gagal', e);
     }
 
     // 2. Izin alarm presisi Android 12+/14+ (SCHEDULE_EXACT_ALARM)
@@ -94,8 +101,9 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidImplementation?.requestExactAlarmsPermission();
-    } catch (_) {
+    } catch (e) {
       // Izin ditolak / tidak didukung: lanjutkan tanpa crash
+      _log.warning('Permintaan izin alarm presisi gagal', e);
     }
 
     // 3. Izin notifikasi iOS
@@ -108,8 +116,9 @@ class NotificationService {
         badge: true,
         sound: true,
       );
-    } catch (_) {
+    } catch (e) {
       // Mengabaikan error pada environment non-iOS/test
+      _log.fine('Izin notifikasi iOS dilewati', e);
     }
   }
 
@@ -170,8 +179,10 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );
-    } catch (_) {
+      _log.info('Pengingat #$id dijadwalkan harian pukul $hour:$minute (berikutnya: $scheduledDate)');
+    } catch (e, s) {
       // Mengabaikan pemanggilan native pada platform yang tidak mendukung (cth. widget test)
+      _log.severe('Gagal menjadwalkan pengingat #$id ($hour:$minute)', e, s);
     }
   }
 
@@ -179,8 +190,9 @@ class NotificationService {
   Future<void> cancelReminder(int id) async {
     try {
       await _notificationsPlugin.cancel(id: id);
-    } catch (_) {
+    } catch (e) {
       // Mengabaikan pemanggilan native pada environment test
+      _log.warning('Gagal membatalkan pengingat', e);
     }
   }
 
@@ -188,8 +200,9 @@ class NotificationService {
   Future<void> cancelAllReminders() async {
     try {
       await _notificationsPlugin.cancelAll();
-    } catch (_) {
+    } catch (e) {
       // Mengabaikan pemanggilan native pada environment test
+      _log.warning('Gagal membatalkan pengingat', e);
     }
   }
 }

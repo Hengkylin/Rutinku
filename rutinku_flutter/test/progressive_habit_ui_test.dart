@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rutinku_flutter/models/habit_model.dart';
 import 'package:rutinku_flutter/notifiers/habit_notifier.dart';
 import 'package:rutinku_flutter/repositories/habit_repository.dart';
 import 'package:rutinku_flutter/widgets/add_habit_bottom_sheet.dart';
@@ -13,9 +15,17 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  /// Menutup dialog "Mantap!" yang muncul setelah tombol [+] ditekan.
+  Future<void> closeProgressDialog(WidgetTester tester) async {
+    expect(find.text('Mantap!'), findsOneWidget);
+    await tester.tap(find.text('Lanjutkan'));
+    await tester.pumpAndSettle();
+  }
+
   /// Merender HabitCard untuk habit pertama dari habitNotifierProvider.
-  Widget cardApp() {
+  Widget cardApp({List<Override> overrides = const []}) {
     return ProviderScope(
+      overrides: overrides,
       child: MaterialApp(
         home: Scaffold(
           body: Consumer(
@@ -56,12 +66,74 @@ void main() {
       await tester.tap(increment);
       await tester.pumpAndSettle();
       expect(find.text('1 / 2 gelas'), findsOneWidget);
+      await closeProgressDialog(tester);
 
       await tester.tap(increment);
       await tester.pumpAndSettle();
       expect(find.text('2 / 2 gelas'), findsOneWidget);
+      await closeProgressDialog(tester);
+
       expect(find.byKey(Key('habit_done_$id')), findsOneWidget);
       expect(increment, findsNothing);
+    });
+
+    testWidgets('tombol [+] menampilkan dialog sukses dengan nama rutinitas',
+        (tester) async {
+      await tester.runAsync(
+        () => HabitRepository()
+            .addHabit('Minum Air', targetValue: 3, unit: 'gelas'),
+      );
+      final id = (await tester.runAsync(() => HabitRepository().fetchHabits()))!
+          .first
+          .id;
+
+      await tester.pumpWidget(cardApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('habit_increment_$id')));
+      await tester.pumpAndSettle();
+
+      final dialog = find.byType(AlertDialog);
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(of: dialog, matching: find.byIcon(Icons.stars_rounded)),
+        findsOneWidget,
+      );
+      expect(find.text('Mantap!'), findsOneWidget);
+      expect(
+        find.text(
+          'Progres rutinitas "Minum Air" berhasil ditambahkan. '
+          'Teruskan konsistensimu!',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Lanjutkan'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('1 / 3 gelas'), findsOneWidget);
+    });
+
+    testWidgets('gagal menyimpan progres: SnackBar merah, tanpa dialog',
+        (tester) async {
+      await tester.pumpWidget(
+        cardApp(
+          overrides: [
+            habitRepositoryProvider.overrideWithValue(
+              _FailingIncrementRepository(),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('habit_increment_h1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Gagal memperbarui progres rutinitas'), findsOneWidget);
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snackBar.backgroundColor, Colors.red.shade600);
+      expect(find.text('0 / 3 gelas'), findsOneWidget); // state di-rollback
     });
 
     testWidgets('habit biasa (target 1) tetap memakai tombol check-in',
@@ -209,4 +281,17 @@ void main() {
       expect(find.text('BUKA'), findsOneWidget); // sheet tertutup
     });
   });
+}
+
+/// Repository yang selalu gagal menyimpan progres, untuk menguji jalur error.
+class _FailingIncrementRepository extends HabitRepository {
+  @override
+  Future<List<HabitModel>> fetchHabits({bool forceError = false}) async => [
+        HabitModel(id: 'h1', title: 'Minum Air', targetValue: 3, unit: 'gelas'),
+      ];
+
+  @override
+  Future<void> incrementHabitProgress(String id, DateTime date) async {
+    throw Exception('penyimpanan penuh');
+  }
 }

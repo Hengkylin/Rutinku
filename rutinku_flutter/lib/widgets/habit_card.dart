@@ -466,6 +466,8 @@ class HabitCard extends ConsumerWidget {
       await ref
           .read(habitNotifierProvider.notifier)
           .incrementHabitProgress(habit.id, DateTime.now());
+      if (!context.mounted) return;
+      _showProgressAddedDialog(context);
     } catch (e) {
       if (!context.mounted) return;
       showAppSnackBar(
@@ -474,5 +476,34 @@ class HabitCard extends ConsumerWidget {
         isError: true,
       );
     }
+  }
+
+  /// Umpan balik setelah progres berhasil ditambahkan lewat tombol [+].
+  void _showProgressAddedDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.stars_rounded, color: Colors.amber, size: 56),
+        title: const Text(
+          'Mantap!',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Progres rutinitas "${habit.title}" berhasil ditambahkan. '
+          'Teruskan konsistensimu!',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            // dialogContext: menutup dialog ini, bukan rute di bawahnya.
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Lanjutkan'),
+          ),
+        ],
+      ),
+    );
   }
 }

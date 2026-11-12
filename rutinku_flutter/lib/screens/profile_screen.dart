@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../repositories/profile_repository.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/profile_form.dart';
+import 'log_viewer_screen.dart';
 
 /// Halaman Profil pengguna yang mendelegasikan logika form sepenuhnya ke [ProfileForm].
 class ProfileScreen extends StatefulWidget {
@@ -50,6 +51,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _onSaveSuccess() {
     showAppSnackBar(context, 'Profil berhasil diperbarui!');
+  }
+
+  /// Pintu masuk ke Log Aplikasi untuk melaporkan masalah.
+  Widget _buildLogEntry() {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        key: const Key('profile_log_entry'),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        leading: const Icon(Icons.receipt_long_rounded, color: _navy),
+        title: const Text(
+          'Log Aplikasi',
+          style: TextStyle(fontWeight: FontWeight.w600, color: _navy),
+        ),
+        subtitle: const Text('Lihat & salin log untuk melaporkan masalah'),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const LogViewerScreen()),
+        ),
+      ),
+    );
   }
 
   @override
@@ -153,6 +180,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onSaveSuccess: _onSaveSuccess,
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  _buildLogEntry(),
                 ],
               ),
             ),

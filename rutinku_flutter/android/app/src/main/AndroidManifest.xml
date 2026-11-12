@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
 
     <application
-        android:label="rutinku_flutter"
+        android:label="RutinKu"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

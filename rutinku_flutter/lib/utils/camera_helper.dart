@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../services/app_logger.dart';
+
 class CameraHelper {
   /// Mengambil foto kenangan menggunakan kamera dan menyimpannya secara permanen
   /// ke dalam direktori dokumen aplikasi dengan nama file berbasis timestamp.
@@ -22,7 +24,8 @@ class CameraHelper {
 
       final savedImage = await File(photo.path).copy(permanentPath);
       return savedImage.path;
-    } catch (e) {
+    } catch (e, s) {
+      AppLogger.get('kamera').warning('Gagal mengambil/menyimpan foto momen', e, s);
       return null;
     }
   }
