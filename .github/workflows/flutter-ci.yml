@@ -65,6 +65,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Cache ~/.gradle (dependensi & wrapper) agar tidak mengunduh ulang
+      # dari Maven Central setiap run (menghindari error 429 Too Many Requests).
+      - uses: gradle/actions/setup-gradle@v4
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -74,8 +78,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Maven Central kadang membalas 429 (rate limit) ke runner GitHub;
+      # coba ulang sampai 3 kali dengan jeda yang makin lama.
       - name: Build release APK
-        run: flutter build apk --release
+        run: |
+          for attempt in 1 2 3; do
+            if flutter build apk --release; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Build gagal (percobaan $attempt), coba lagi dalam $((attempt * 60)) detik..."
+              sleep $((attempt * 60))
+            fi
+          done
+          exit 1
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
