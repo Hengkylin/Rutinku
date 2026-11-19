@@ -44,6 +44,10 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 3. **Notifikasi *Background* & Kamera Berfungsi Aman:** Pengingat lokal muncul sesuai jadwal yang ditentukan pengguna dan fitur *"Abadikan Momen"* berhasil menyimpan foto jurnal kebiasaan tanpa menyebabkan *crash* meskipun izin perangkat ditolak atau aksi dibatalkan.
 4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **146 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
 
+## Lisensi
+
+Proyek ini dirilis di bawah [Lisensi MIT](../LICENSE) © 2026 Hengkylin. Kode boleh dipakai, diubah, dan didistribusikan ulang selama pemberitahuan hak cipta dan lisensi tetap dicantumkan.
+
 ---
 
-Panduan instalasi, prasyarat, serta perintah menjalankan aplikasi dan pengujian dapat dilihat pada [HowToRun.md](../HowToRun.md) dan [Architecture.md](Architecture.md).
+Panduan instalasi, prasyarat, serta perintah menjalankan aplikasi dan pengujian dapat dilihat pada [HowToRun.md](../HowToRun.md) dan [Architecture.md](Architecture.md). Lisensi: [MIT](../LICENSE).
