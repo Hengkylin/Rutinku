@@ -154,7 +154,7 @@ rutinku_flutter/
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 ├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (133 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (142 Unit & Widget Test)
 │   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
 │   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
@@ -166,6 +166,7 @@ rutinku_flutter/
 │   ├── checkin_test.dart                 # Unit test CRUD, SharedPreferences, streak, mood, & habit stacking
 │   ├── edge_cases_test.dart              # Widget/unit test validasi input, empty state, & izin notifikasi aman
 │   ├── template_screen_test.dart         # Widget test alur pemilihan templat kebiasaan
+│   ├── habit_title_guard_test.dart       # Unit test HabitNotifier menolak nama kebiasaan kosong/tak terlihat (issue #5)
 │   ├── validators_test.dart              # Unit test aturan input terpusat (nama, telepon, target, email, password)
 │   ├── profile_form_test.dart            # Widget test ProfileForm (validasi, loading, sukses, error) dengan FakeProfileRepository
 │   ├── progressive_habit_test.dart       # Unit test Progressive Habit (model, repository, notifier, toggle)

@@ -49,7 +49,7 @@ Layering under `lib/`: `screens/` + `widgets/` (UI) → `notifiers/` (Riverpod s
   - `Validators` (`utils/validators.dart`): pure input rules. No validation belongs in the repository.
   - `ProfileRepository`: Supabase `users` table update + local cache; maps errors to user-facing `Exception`s. If the table is missing (`42P01` / `PGRST205`) the request is simulated with a delay.
   - Repositories are injected via constructor (`ProfileScreen(repository:)`, `ProfileForm(repository:)`).
-- **Single source for input rules:** `Validators` holds every rule (name, phone, target value, email, password ≥ 6 chars and not trimmed, password confirmation, 6-digit OTP code). Screens pass `Validators.validateX` as `validator:` — don't inline regexes or length checks again.
+- **Single source for input rules:** `Validators` holds every rule (name, habit title — `validateHabitTitle`/`normalizeHabitTitle` also strip invisible chars like U+200B/U+3164 that `trim()` keeps, and `HabitNotifier` re-checks it before saving —, phone, target value, email, password ≥ 6 chars and not trimmed, password confirmation, 6-digit OTP code). Screens pass `Validators.validateX` as `validator:` — don't inline regexes or length checks again.
 - **Shared UI helpers:** use `showAppSnackBar` (`widgets/app_snackbar.dart`) for snackbars instead of building `SnackBar`s inline; `authInputDecoration()` (`widgets/auth_input_decoration.dart`) for auth text fields; `AuthHeader` (`widgets/auth_header.dart`) for the icon/title/subtitle header on auth screens. Colors (e.g. navy `0xFF1E293B`, lime `0xFFD9F99D`) are currently redeclared per file; there is no central theme/color class yet.
 
 ## Testing patterns

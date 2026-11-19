@@ -62,7 +62,7 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
     try {
       await ref.read(habitNotifierProvider.notifier).updateHabit(
             widget.habit.id,
-            _titleController.text.trim(),
+            Validators.normalizeHabitTitle(_titleController.text),
             _categoryController.text.trim(),
             _reminderController.text.trim(),
             parentHabitId: _selectedParentHabitId,
@@ -247,15 +247,7 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
                 controller: _titleController,
                 enabled: !_isSubmitting,
                 decoration: _inputDecoration(hintText: 'Contoh: Baca 10 halaman'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Nama kebiasaan tidak boleh kosong';
-                  }
-                  if (value.trim().length < 3) {
-                    return 'Minimal 3 karakter';
-                  }
-                  return null;
-                },
+                validator: Validators.validateHabitTitle,
               ),
               const SizedBox(height: 18),
 

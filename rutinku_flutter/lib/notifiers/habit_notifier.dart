@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/habit_model.dart';
 import '../repositories/habit_repository.dart';
 import '../services/app_logger.dart';
+import '../utils/validators.dart';
 
 final habitRepositoryProvider = Provider<HabitRepository>((ref) {
   return HabitRepository();
@@ -28,6 +29,15 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
       _log.severe('Gagal memuat rutinitas', e, s);
       rethrow;
     }
+  }
+
+  /// Pengaman lapisan state: menolak nama kebiasaan kosong/tak terlihat
+  /// walaupun pemanggil melewati validasi form (issue #5).
+  void _ensureValidTitle(String title) {
+    final error = Validators.validateHabitTitle(title);
+    if (error == null) return;
+    _log.warning('Menolak menyimpan rutinitas: $error');
+    throw Exception(error);
   }
 
   /// Mengembalikan state sebelumnya, mencatat error asli ke log, lalu
@@ -62,11 +72,12 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     int targetValue = 1,
     String? unit,
   }) async {
+    _ensureValidTitle(title);
     final previousState = state;
     state = const AsyncValue.loading();
     try {
       await _repository.addHabit(
-        title,
+        Validators.normalizeHabitTitle(title),
         category: category,
         reminderTime: reminderTime,
         parentHabitId: parentHabitId,
@@ -89,12 +100,13 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     int targetValue = 1,
     String? unit,
   }) async {
+    _ensureValidTitle(newTitle);
     final previousState = state;
     state = const AsyncValue.loading();
     try {
       await _repository.updateHabit(
         id,
-        newTitle,
+        Validators.normalizeHabitTitle(newTitle),
         newCategory,
         newReminder,
         parentHabitId: parentHabitId,

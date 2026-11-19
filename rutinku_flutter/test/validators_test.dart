@@ -121,5 +121,42 @@ void main() {
       expect(Validators.parseTargetValue(' 8 '), 8);
     });
   });
+
+  group('Validators.validateHabitTitle & normalizeHabitTitle (issue #5)', () {
+    test('menolak nama kosong, null, atau hanya spasi/tab/baris baru', () {
+      const pesan = 'Nama kebiasaan tidak boleh kosong';
+      expect(Validators.validateHabitTitle(null), pesan);
+      expect(Validators.validateHabitTitle(''), pesan);
+      expect(Validators.validateHabitTitle('     '), pesan);
+      expect(Validators.validateHabitTitle(' \t\n '), pesan);
+      // Spasi non-breaking & spasi ideografis (sudah dibuang trim()).
+      expect(Validators.validateHabitTitle('\u00A0\u3000'), pesan);
+    });
+
+    test('menolak nama berisi karakter tak terlihat yang lolos dari trim()', () {
+      const pesan = 'Nama kebiasaan tidak boleh kosong';
+      expect('\u200B\u200B\u200B'.trim(), isNotEmpty); // bukti celahnya
+      expect(Validators.validateHabitTitle('\u200B\u200B\u200B'), pesan);
+      expect(Validators.validateHabitTitle('\u3164\u3164\u3164'), pesan);
+      expect(Validators.validateHabitTitle(' \u2800 \u200D \uFEFF '), pesan);
+    });
+
+    test('menolak nama kurang dari 3 karakter atau tanpa huruf/angka', () {
+      expect(Validators.validateHabitTitle('  ab  '), 'Minimal 3 karakter');
+      expect(Validators.validateHabitTitle('a\u200Bb'), 'Minimal 3 karakter');
+      expect(Validators.validateHabitTitle('...'),
+          'Nama kebiasaan harus berisi huruf atau angka');
+      expect(Validators.validateHabitTitle('- - -'),
+          'Nama kebiasaan harus berisi huruf atau angka');
+    });
+
+    test('menerima nama valid dan merapikannya', () {
+      expect(Validators.validateHabitTitle('Minum Air'), isNull);
+      expect(Validators.validateHabitTitle('Lari 5K'), isNull);
+      expect(Validators.validateHabitTitle('100'), isNull);
+      expect(Validators.normalizeHabitTitle('  Minum   Air\u200B  '), 'Minum Air');
+      expect(Validators.normalizeHabitTitle(null), '');
+    });
+  });
 }
 

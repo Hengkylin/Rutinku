@@ -49,6 +49,20 @@ void main() {
       expect(find.text('Nama kebiasaan tidak boleh kosong'), findsOneWidget);
     });
 
+    testWidgets('menolak nama berisi karakter tak terlihat (issue #5)',
+        (tester) async {
+      await tester.pumpWidget(wrap(const AddHabitBottomSheet()));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.byType(TextFormField).first, '\u200B\u3164\u200B');
+      await tester.ensureVisible(find.text('Simpan'));
+      await tester.tap(find.text('Simpan'));
+      await tester.pump();
+
+      expect(find.text('Nama kebiasaan tidak boleh kosong'), findsOneWidget);
+    });
+
     testWidgets('menolak nama kebiasaan kurang dari 3 karakter', (tester) async {
       await tester.pumpWidget(wrap(const AddHabitBottomSheet()));
       await tester.pumpAndSettle();
@@ -102,6 +116,19 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, '   ');
+      await tester.ensureVisible(find.text('Simpan perubahan'));
+      await tester.tap(find.text('Simpan perubahan'));
+      await tester.pump();
+
+      expect(find.text('Nama kebiasaan tidak boleh kosong'), findsOneWidget);
+    });
+
+    testWidgets('menolak nama berisi karakter tak terlihat (issue #5)',
+        (tester) async {
+      await tester.pumpWidget(wrap(EditHabitBottomSheet(habit: habit)));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, '\u200B\u200B');
       await tester.ensureVisible(find.text('Simpan perubahan'));
       await tester.tap(find.text('Simpan perubahan'));
       await tester.pump();

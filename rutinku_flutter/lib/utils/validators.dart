@@ -15,6 +15,17 @@ class Validators {
   static final RegExp _startsWithDigitRegex = RegExp(r'^\d');
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
+  /// Karakter yang tampil kosong tetapi TIDAK dibuang oleh `String.trim()`:
+  /// soft hyphen, Hangul filler, zero-width space/joiner, tanda arah teks,
+  /// word joiner, braille blank, dsb. Dipakai untuk membuat nama "kosong".
+  static final RegExp _invisibleCharsRegex = RegExp(
+    '[\u00AD\u034F\u115F\u1160\u17B4\u17B5\u180E\u200B-\u200F'
+    '\u202A-\u202E\u2060-\u2064\u206A-\u206F\u2800\u3164\uFEFF\uFFA0]',
+  );
+  static final RegExp _whitespaceRunRegex = RegExp(r'\s+');
+  static final RegExp _letterOrDigitRegex =
+      RegExp(r'[\p{L}\p{N}]', unicode: true);
+
   /// Menormalkan input teks: `null` dianggap string kosong, spasi di
   /// awal/akhir dibuang.
   static String normalize(String? value) => value?.trim() ?? '';
@@ -32,6 +43,26 @@ class Validators {
     if (name.isEmpty) return 'Nama wajib diisi';
     if (name.length < minNameLength) {
       return 'Nama minimal $minNameLength karakter';
+    }
+    return null;
+  }
+
+  /// Menormalkan nama kebiasaan: membuang karakter tak terlihat, merapikan
+  /// spasi berurutan menjadi satu spasi, lalu trim.
+  static String normalizeHabitTitle(String? value) => (value ?? '')
+      .replaceAll(_invisibleCharsRegex, '')
+      .replaceAll(_whitespaceRunRegex, ' ')
+      .trim();
+
+  /// Validasi nama kebiasaan (form tambah & edit rutinitas): setelah
+  /// dinormalkan wajib diisi, minimal [minNameLength] karakter, dan memuat
+  /// minimal satu huruf atau angka (menolak nama seperti "..." atau "---").
+  static String? validateHabitTitle(String? value) {
+    final title = normalizeHabitTitle(value);
+    if (title.isEmpty) return 'Nama kebiasaan tidak boleh kosong';
+    if (title.length < minNameLength) return 'Minimal $minNameLength karakter';
+    if (!_letterOrDigitRegex.hasMatch(title)) {
+      return 'Nama kebiasaan harus berisi huruf atau angka';
     }
     return null;
   }
