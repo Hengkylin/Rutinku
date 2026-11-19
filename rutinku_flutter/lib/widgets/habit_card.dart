@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/habit_notifier.dart';
+import '../notifiers/today_notifier.dart';
 import 'app_snackbar.dart';
 import 'edit_habit_bottom_sheet.dart';
 
@@ -52,9 +53,14 @@ class HabitCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final todayRecord = habit.todayRecord;
+    // Semua status "hari ini" memakai todayProvider agar kartu ikut berganti
+    // hari saat lewat 00:00 / aplikasi dibuka kembali (issue #4).
+    final today = ref.watch(todayProvider);
+    final todayRecord = habit.getRecordOn(today);
     final status = todayRecord?.status;
-    final isCompleted = habit.isCompletedOn(DateTime.now());
+    final isCompleted = habit.isCompletedOn(today);
+    final weeklyProgress = habit.weeklyProgressOn(today);
+    final streakCount = habit.streakCountOn(today);
     final isSkipped = status == 'skipped';
     final isRest = status == 'rest';
     final todayMood = todayRecord?.mood;
@@ -209,11 +215,11 @@ class HabitCard extends ConsumerWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: habit.weeklyProgress,
+                            value: weeklyProgress,
                             minHeight: 4,
                             backgroundColor: Colors.grey.shade200,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              habit.weeklyProgress >= 1.0
+                              weeklyProgress >= 1.0
                                   ? const Color(0xFF22C55E)
                                   : const Color(0xFF3B82F6),
                             ),
@@ -222,7 +228,7 @@ class HabitCard extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${(habit.weeklyProgress * 100).toInt()}%',
+                        '${(weeklyProgress * 100).toInt()}%',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -257,7 +263,7 @@ class HabitCard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      if (habit.streakCount > 0) ...[
+                      if (streakCount > 0) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -276,7 +282,7 @@ class HabitCard extends ConsumerWidget {
                               const Text('🔥', style: TextStyle(fontSize: 10)),
                               const SizedBox(width: 3),
                               Text(
-                                '${habit.streakCount} hari',
+                                '$streakCount hari',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -465,7 +471,7 @@ class HabitCard extends ConsumerWidget {
     try {
       await ref
           .read(habitNotifierProvider.notifier)
-          .incrementHabitProgress(habit.id, DateTime.now());
+          .incrementHabitProgress(habit.id, ref.read(todayProvider));
       if (!context.mounted) return;
       _showProgressAddedDialog(context);
     } catch (e) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/sync_notifier.dart';
+import '../notifiers/today_notifier.dart';
 import 'login_screen.dart';
 
 class SyncScreen extends ConsumerStatefulWidget {
@@ -468,6 +469,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
 
   // --- 4. STATE SUCCESS ---
   Widget _buildSuccessState(List<HabitModel> habits) {
+    final today = ref.watch(todayProvider);
     return Column(
       children: [
         // Top Action Card: Info & Restore Button (Backup ada di bottomNavigationBar)
@@ -590,7 +592,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
             separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final habit = habits[index];
-              final isCompleted = habit.isCompletedToday;
+              final isCompleted = habit.isCompletedOn(today);
 
               return Container(
                 padding: const EdgeInsets.all(14),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/habit_notifier.dart';
+import '../notifiers/today_notifier.dart';
 import '../services/analytics_service.dart';
 
 /// Halaman Analitik: hanya menampilkan hasil dari [AnalyticsService].
@@ -40,6 +41,7 @@ class AnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitState = ref.watch(habitNotifierProvider);
+    final today = ref.watch(todayProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -71,7 +73,7 @@ class AnalyticsScreen extends ConsumerWidget {
                     'Tambahkan kebiasaan di tab Tugas dan lakukan check-in '
                     'untuk melihat perkembanganmu di sini.',
               )
-            : _buildContent(AnalyticsService(habits)),
+            : _buildContent(AnalyticsService(habits, now: today)),
       ),
     );
   }

@@ -211,9 +211,14 @@ class HabitModel {
     return streak;
   }
 
-  double get weeklyProgress {
+  double get weeklyProgress => weeklyProgressOn(DateTime.now());
+
+  /// Persentase hari selesai dalam 7 hari terakhir dihitung mundur dari
+  /// [date] (bukan selalu `DateTime.now()`), agar UI bisa memakai tanggal
+  /// dari `todayProvider`.
+  double weeklyProgressOn(DateTime date) {
     int completedDays = 0;
-    final today = DateTime.now();
+    final today = date;
     for (int i = 0; i < 7; i++) {
       if (isCompletedOn(today.subtract(Duration(days: i)))) {
         completedDays++;

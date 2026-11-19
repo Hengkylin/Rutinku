@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/habit_notifier.dart';
+import '../notifiers/today_notifier.dart';
 import '../widgets/add_habit_bottom_sheet.dart';
 import '../widgets/edit_habit_bottom_sheet.dart';
 import '../widgets/habit_card.dart';
@@ -14,8 +15,7 @@ import 'sync_screen.dart';
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  String _getFormattedDate() {
-    final now = DateTime.now();
+  String _getFormattedDate(DateTime now) {
     const days = [
       'SENIN',
       'SELASA',
@@ -47,12 +47,14 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitState = ref.watch(habitNotifierProvider);
+    // Tanggal aktif; berganti otomatis saat lewat 00:00 / aplikasi dibuka lagi.
+    final today = ref.watch(todayProvider);
 
     // 1. Hitung metrik dari data habits (jika data tersedia)
     final habits = habitState.value ?? [];
     final totalTargets = habits.length;
     final completedTargets = habits
-        .where((h) => h.isCompletedOn(DateTime.now()))
+        .where((h) => h.isCompletedOn(today))
         .length;
     final progressValue = totalTargets > 0
         ? completedTargets / totalTargets
@@ -236,7 +238,7 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _getFormattedDate(),
+                    _getFormattedDate(today),
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: 12,
@@ -406,7 +408,7 @@ class DashboardScreen extends ConsumerWidget {
                             onToggle: () {
                               ref
                                   .read(habitNotifierProvider.notifier)
-                                  .toggleCheckIn(habit.id, DateTime.now());
+                                  .toggleCheckIn(habit.id, today);
                             },
                             onCaptureMoment: () {
                               _captureMoment(context, ref, habit);
@@ -449,7 +451,7 @@ class DashboardScreen extends ConsumerWidget {
                                               builder: (context) =>
                                                   ReflectionBottomSheet(
                                                     habit: habit,
-                                                    date: DateTime.now(),
+                                                    date: today,
                                                   ),
                                             );
                                           },
@@ -607,7 +609,7 @@ class DashboardScreen extends ConsumerWidget {
       if (imagePath != null && context.mounted) {
         await ref
             .read(habitNotifierProvider.notifier)
-            .saveMomentImage(habit.id, imagePath, DateTime.now());
+            .saveMomentImage(habit.id, imagePath, ref.read(todayProvider));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

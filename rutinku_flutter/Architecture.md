@@ -111,6 +111,7 @@ rutinku_flutter/
 │   │
 │   ├── notifiers/                        # Logika bisnis & State Management (Riverpod)
 │   │   ├── habit_notifier.dart           # AsyncNotifier kebiasaan (Optimistic UI, check-in, foto momen)
+│   │   ├── today_notifier.dart           # todayProvider: tanggal aktif, berganti otomatis saat 00:00 & resume
 │   │   └── sync_notifier.dart            # Notifier sinkronisasi cloud (Loading, Empty, Data, Error, Retry)
 │   │
 │   ├── services/                         # Layanan eksternal, sistem perangkat, & logika statistik
@@ -154,7 +155,7 @@ rutinku_flutter/
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 ├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (142 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (146 Unit & Widget Test)
 │   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
 │   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
@@ -167,6 +168,7 @@ rutinku_flutter/
 │   ├── edge_cases_test.dart              # Widget/unit test validasi input, empty state, & izin notifikasi aman
 │   ├── template_screen_test.dart         # Widget test alur pemilihan templat kebiasaan
 │   ├── habit_title_guard_test.dart       # Unit test HabitNotifier menolak nama kebiasaan kosong/tak terlihat (issue #5)
+│   ├── today_notifier_test.dart          # Unit & widget test todayProvider (pergantian hari 00:00 & resume, streak putus) (issue #4)
 │   ├── validators_test.dart              # Unit test aturan input terpusat (nama, telepon, target, email, password)
 │   ├── profile_form_test.dart            # Widget test ProfileForm (validasi, loading, sukses, error) dengan FakeProfileRepository
 │   ├── progressive_habit_test.dart       # Unit test Progressive Habit (model, repository, notifier, toggle)

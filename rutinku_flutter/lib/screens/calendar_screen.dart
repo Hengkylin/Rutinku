@@ -7,6 +7,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../models/habit_model.dart';
 import '../notifiers/habit_notifier.dart';
+import '../notifiers/today_notifier.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
@@ -22,6 +23,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final habitState = ref.watch(habitNotifierProvider);
+    final today = ref.watch(todayProvider);
+    // Jika pengguna sedang melihat "hari ini", pilihan ikut pindah ke hari
+    // baru saat lewat 00:00 / aplikasi dibuka lagi (issue #4).
+    ref.listen<DateTime>(todayProvider, (previous, next) {
+      if (previous != null && isSameDay(_selectedDay, previous)) {
+        setState(() {
+          _selectedDay = next;
+          _focusedDay = next;
+        });
+      }
+    });
     final habits = habitState.value ?? [];
     final currentSelectedDay = _selectedDay;
 
@@ -67,6 +79,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             child: TableCalendar<HabitModel>(
               firstDay: DateTime.utc(2024, 1, 1),
               lastDay: DateTime.utc(2030, 12, 31),
+              currentDay: today,
               focusedDay: _focusedDay,
               selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
               eventLoader: (day) {
