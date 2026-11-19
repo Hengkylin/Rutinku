@@ -1,0 +1,108 @@
+# CI/CD RutinKu (issue #3)
+#
+# CI : setiap push / pull request ke main -> flutter analyze + flutter test,
+#      lalu build APK release dan simpan sebagai artifact (bisa diunduh dari
+#      tab Actions selama 14 hari).
+# CD : setiap push tag versi (mis. v1.0.0-rc.2) -> build APK lalu otomatis
+#      membuat GitHub Release berisi app-release.apk.
+#
+# Proyek Flutter ada di folder rutinku_flutter/, versi Flutter disamakan
+# dengan mesin pengembang agar hasil analyze/test identik.
+name: Flutter CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+
+defaults:
+  run:
+    working-directory: rutinku_flutter
+
+jobs:
+  test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+  build-apk:
+    name: Build APK
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rutinku-apk-${{ github.sha }}
+          path: rutinku_flutter/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rutinku-apk-${{ github.sha }}
+
+      - name: Rename APK
+        working-directory: .
+        run: mv app-release.apk "RutinKu-${GITHUB_REF_NAME}.apk"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: RutinKu-${{ github.ref_name }}.apk
+          generate_release_notes: true
+          # Tag berisi tanda "-" (mis. v1.0.0-rc.2) ditandai pre-release.
+          prerelease: ${{ contains(github.ref_name, '-') }}

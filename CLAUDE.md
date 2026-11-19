@@ -21,6 +21,8 @@ flutter test test/profile_form_test.dart      # single file
 flutter test --plain-name "nama kosong"       # single test by name substring
 ```
 
+CI/CD: `.github/workflows/flutter-ci.yml` (GitHub Actions, Flutter pinned via `FLUTTER_VERSION`, currently `3.47.5`) runs `flutter analyze` + `flutter test` and builds the release APK (uploaded as an artifact) on every push/PR to `main`; pushing a `v*` tag also creates a GitHub Release with the APK (pre-release if the tag contains `-`). Keep `flutter analyze` clean and all tests green — CI fails otherwise.
+
 Android build needs JDK 17 and NDK `28.2.13676358`; `android/gradle.properties` sets `kotlin.incremental=false` (works around cross-drive Kotlin cache errors on Windows) and core library desugaring is enabled for `flutter_local_notifications`. Lints: `flutter_lints` with platform folders excluded.
 
 ## Architecture

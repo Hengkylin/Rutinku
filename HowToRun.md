@@ -195,6 +195,26 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 * **Tanda tangan (signing):** build release saat ini masih ditandatangani dengan *debug key* (`android/app/build.gradle.kts`). Cukup untuk uji coba dan dibagikan ke penguji (salin APK ke HP lalu izinkan *instal dari sumber tidak dikenal*), tetapi **tidak bisa diunggah ke Google Play**. Untuk Play Store perlu keystore rilis sendiri dan `applicationId` selain `com.example.rutinku_flutter`.
 * **R8/shrinking:** build release memperkecil kode & resource. `android/app/src/main/res/raw/keep.xml` menjaga ikon notifikasi (`@mipmap/ic_launcher`) agar tidak terbuang; aturan ProGuard Gson untuk `flutter_local_notifications` (v19+) sudah otomatis.
 
+### CI/CD otomatis (GitHub Actions)
+
+Workflow `.github/workflows/flutter-ci.yml` berjalan otomatis di GitHub:
+
+| Pemicu | Yang dijalankan | Hasil |
+|---|---|---|
+| Push / Pull Request ke `main` | `flutter analyze` → `flutter test` → `flutter build apk --release` | Status ✅/❌ di tab **Actions**; APK bisa diunduh dari bagian **Artifacts** (disimpan 14 hari) |
+| Push tag versi, mis. `v1.0.0-rc.2` | Semua langkah di atas + membuat **GitHub Release** | `RutinKu-v1.0.0-rc.2.apk` terlampir di halaman **Releases** (tag berisi `-` ditandai *pre-release*) |
+
+Merilis versi baru:
+
+```bash
+# 1. Naikkan versi di rutinku_flutter/pubspec.yaml (mis. 1.0.0-rc.2+4), commit & push
+git tag v1.0.0-rc.2
+git push origin v1.0.0-rc.2
+```
+
+> Versi Flutter di CI dikunci lewat `FLUTTER_VERSION` di workflow (saat ini `3.47.5`). Jika Flutter di laptop di-upgrade, ubah nilai ini juga.
+> APK dari CI ditandatangani *debug key* milik runner GitHub (berbeda dengan laptop), sehingga tidak bisa meng-update APK yang di-build di laptop — uninstall dulu jika berganti sumber APK.
+
 ---
 
 ## 8. Log Aplikasi (Menelusuri Masalah Saat Aplikasi Berjalan)

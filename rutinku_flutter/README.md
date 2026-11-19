@@ -1,5 +1,7 @@
 # RutinKu - Mobile Habit Tracker App 🚀
 
+[![Flutter CI/CD](https://github.com/Hengkylin/Rutinku/actions/workflows/flutter-ci.yml/badge.svg)](https://github.com/Hengkylin/Rutinku/actions/workflows/flutter-ci.yml)
+
 ## Deskripsi Masalah
 Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasaan baru. Kegagalan ini sering terjadi karena mereka tidak memiliki alat pencatat progres yang praktis dan tidak adanya dorongan visual (seperti *streak* maupun dokumentasi momen) untuk memotivasi mereka secara harian. Selain itu, pengguna sering kali lupa membuka aplikasi jika tidak diingatkan, dan pencatatan yang hanya tersimpan di memori internal *smartphone* rawan hilang jika berganti perangkat tanpa fitur pencadangan *cloud*.
 
