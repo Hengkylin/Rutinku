@@ -1,0 +1,10 @@
+# Pengaturan editor/IDE bersifat personal tiap developer (issue #1).
+# Proyek Flutter punya .gitignore sendiri di rutinku_flutter/.gitignore.
+.vscode/
+.idea/
+*.iml
+
+# File sistem operasi
+.DS_Store
+Thumbs.db
+desktop.ini
