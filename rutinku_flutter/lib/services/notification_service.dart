@@ -129,6 +129,7 @@ class NotificationService {
     required String body,
     required int hour,
     required int minute,
+    bool skipToday = false,
   }) async {
     try {
       if (!_isInitialized) {
@@ -145,8 +146,10 @@ class NotificationService {
         minute,
       );
 
-      // Jika waktu hari ini sudah terlewat, jadwalkan mulai besok
-      if (scheduledDate.isBefore(now)) {
+      // Mulai besok jika waktu hari ini sudah terlewat, atau jika rutinitas
+      // hari ini sudah selesai (issue #7). Notifikasi tetap berulang harian
+      // mulai dari tanggal pertama ini.
+      if (scheduledDate.isBefore(now) || skipToday) {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
@@ -179,7 +182,8 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );
-      _log.info('Pengingat #$id dijadwalkan harian pukul $hour:$minute (berikutnya: $scheduledDate)');
+      _log.info('Pengingat #$id dijadwalkan harian pukul $hour:$minute '
+          '(berikutnya: $scheduledDate${skipToday ? ', hari ini sudah selesai' : ''})');
     } catch (e, s) {
       // Mengabaikan pemanggilan native pada platform yang tidak mendukung (cth. widget test)
       _log.severe('Gagal menjadwalkan pengingat #$id ($hour:$minute)', e, s);

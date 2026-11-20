@@ -12,16 +12,22 @@ class HabitRepository {
   static const String _storageKey = storageKey;
 
   final NotificationService _notificationService;
+  final DateTime Function() _clock;
 
-  HabitRepository({NotificationService? notificationService})
-      : _notificationService = notificationService ?? NotificationService();
+  HabitRepository({
+    NotificationService? notificationService,
+    DateTime Function()? clock,
+  })  : _notificationService = notificationService ?? NotificationService(),
+        _clock = clock ?? DateTime.now;
 
   /// Mengubah HabitModel.id (String) menjadi int untuk ID notifikasi (32-bit positive int)
   int _notificationIdFromHabitId(String id) {
     return id.hashCode & 0x7FFFFFFF;
   }
 
-  /// Menjadwalkan pengingat harian jika reminderTime tersedia (format "HH:mm")
+  /// Menjadwalkan pengingat harian jika reminderTime tersedia (format "HH:mm").
+  /// Jika rutinitas hari ini sudah selesai, pengingat baru dimulai besok
+  /// sehingga tidak muncul lagi untuk hari yang sudah dicentang (issue #7).
   Future<void> _scheduleReminderIfPresent(HabitModel habit) async {
     final reminderTime = habit.reminderTime;
     if (reminderTime != null && reminderTime.isNotEmpty) {
@@ -36,10 +42,26 @@ class HabitRepository {
             body: 'Yuk, sempatkan waktu untuk menyelesaikan rutinitas "${habit.title}"!',
             hour: hour,
             minute: minute,
+            skipToday: habit.isCompletedOn(_clock()),
           );
         }
       }
     }
+  }
+
+  /// Dipanggil setelah record suatu tanggal berubah (check-in, progres,
+  /// refleksi, foto). Hanya perubahan pada HARI INI yang memengaruhi
+  /// pengingat berikutnya, jadi jadwal diatur ulang hanya untuk itu.
+  Future<void> _refreshReminderAfterRecordChange(
+    HabitModel habit,
+    DateTime date,
+  ) async {
+    final today = _clock();
+    final isToday = date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
+    if (!isToday) return;
+    await _scheduleReminderIfPresent(habit);
   }
 
   // Fungsi internal untuk menyimpan list ke SharedPreferences
@@ -134,6 +156,7 @@ class HabitRepository {
 
     habits[index] = habits[index].toggleCheckIn(date);
     await _saveHabitsToStorage(habits);
+    await _refreshReminderAfterRecordChange(habits[index], date);
   }
 
   // UPDATE (Progressive Habit): Menambah progres angka harian (+1) dan simpan ke Storage
@@ -144,6 +167,7 @@ class HabitRepository {
 
     habits[index] = habits[index].incrementProgress(date);
     await _saveHabitsToStorage(habits);
+    await _refreshReminderAfterRecordChange(habits[index], date);
   }
 
   // UPDATE (Mood & Recovery Record): Mengubah status, mood, dan catatan refleksi
@@ -185,6 +209,7 @@ class HabitRepository {
 
       habits[index] = habit.copyWith(records: updatedRecords);
       await _saveHabitsToStorage(habits);
+      await _refreshReminderAfterRecordChange(habits[index], date);
     }
   }
 
@@ -220,6 +245,7 @@ class HabitRepository {
 
       habits[index] = habit.copyWith(records: updatedRecords);
       await _saveHabitsToStorage(habits);
+      await _refreshReminderAfterRecordChange(habits[index], date);
     }
   }
 
