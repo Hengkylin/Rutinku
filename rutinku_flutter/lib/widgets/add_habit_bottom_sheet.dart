@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../notifiers/habit_notifier.dart';
 import '../utils/validators.dart';
 import 'habit_target_fields.dart';
+import 'reminder_time_field.dart';
 
 class AddHabitBottomSheet extends ConsumerStatefulWidget {
   final String? initialTitle;
@@ -260,22 +261,10 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              ReminderTimeField(
                 controller: _reminderController,
                 enabled: !_isSubmitting,
-                readOnly: true,
-                decoration: _inputDecoration(hintText: 'Contoh: 07:00'),
-                onTap: () async {
-                  final TimeOfDay? pickedTime = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                  );
-                  if (pickedTime != null) {
-                    final hour = pickedTime.hour.toString().padLeft(2, '0');
-                    final minute = pickedTime.minute.toString().padLeft(2, '0');
-                    _reminderController.text = '$hour:$minute';
-                  }
-                },
+                decoration: _inputDecoration(),
               ),
               const SizedBox(height: 28),
 

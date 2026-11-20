@@ -65,12 +65,11 @@ class HabitCard extends ConsumerWidget {
     final isRest = status == 'rest';
     final todayMood = todayRecord?.mood;
 
-    // Gunakan reminderTime jika ada, atau fallback ke mock data
-    final mockTime = habit.reminderTime != null && habit.reminderTime!.isNotEmpty
-        ? habit.reminderTime!
-        : (habit.title.toLowerCase().contains('air')
-            ? 'Sepanjang hari'
-            : '07:00');
+    // Tampilkan jam pengingat yang benar-benar dijadwalkan (issue #9).
+    // Tanpa pengingat, jangan tampilkan jam palsu agar pengguna tidak
+    // mengira notifikasi akan muncul.
+    final reminderTime = habit.reminderTime?.trim() ?? '';
+    final hasReminder = reminderTime.isNotEmpty;
 
     // Penyesuaian warna kartu berdasarkan status hari ini
     Color cardBgColor = Colors.white;
@@ -246,16 +245,19 @@ class HabitCard extends ConsumerWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Row(
+                        key: Key('habit_reminder_${habit.id}'),
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.schedule,
+                            hasReminder
+                                ? Icons.notifications_active_outlined
+                                : Icons.notifications_off_outlined,
                             size: 13,
                             color: Colors.grey.shade500,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            mockTime,
+                            hasReminder ? reminderTime : 'Tanpa pengingat',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade500,
