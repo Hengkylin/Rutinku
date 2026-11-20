@@ -17,6 +17,10 @@ class AnalyticsScreen extends ConsumerWidget {
   static const _positive = Color(0xFF16A34A);
   static const _negative = Color(0xFFDC2626);
 
+  /// Lebar konten minimum agar dua kartu ringkasan muat berdampingan.
+  /// Layar < 360dp dikurangi padding 2 × 20 → kartu ditumpuk (issue #8).
+  static const double summaryRowMinWidth = 320;
+
   /// Teks selisih, mis. "+17,9% dari minggu lalu" atau "-5% dari minggu lalu".
   static String formatProgressDelta(double delta) {
     if (delta.abs() < 0.05) return 'Sama dengan minggu lalu';
@@ -100,15 +104,33 @@ class AnalyticsScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _buildConsistentCard(service, consistent)),
-              const SizedBox(width: 12),
-              Expanded(child: _buildMissedDayCard(missedDay)),
-            ],
-          ),
+        // Di layar sempit kedua kartu ditumpuk agar judul kebiasaan dan
+        // keterangan tidak terpotong (issue #8).
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final consistentCard = _buildConsistentCard(service, consistent);
+            final missedDayCard = _buildMissedDayCard(missedDay);
+            if (constraints.maxWidth < summaryRowMinWidth) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  consistentCard,
+                  const SizedBox(height: 12),
+                  missedDayCard,
+                ],
+              );
+            }
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: consistentCard),
+                  const SizedBox(width: 12),
+                  Expanded(child: missedDayCard),
+                ],
+              ),
+            );
+          },
         ),
         const SizedBox(height: 24),
         _buildWeeklySection(rates, delta),
@@ -186,13 +208,10 @@ class AnalyticsScreen extends ConsumerWidget {
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 20),
-          SizedBox(
-            height: 200,
-            child: _WeeklyBarChart(
-              lastWeek: rates.lastWeek,
-              thisWeek: rates.thisWeek,
-              formatPercent: _formatPercent,
-            ),
+          _WeeklyBarChart(
+            lastWeek: rates.lastWeek,
+            thisWeek: rates.thisWeek,
+            formatPercent: _formatPercent,
           ),
           const SizedBox(height: 16),
           Row(
@@ -355,9 +374,35 @@ class _WeeklyBarChart extends StatelessWidget {
   final String Function(double) formatPercent;
 
   static const _labels = ['Minggu Lalu', 'Minggu Ini'];
+  static const double _plotHeight = 156;
+  static const double _leftTitlesWidth = 40;
 
   @override
   Widget build(BuildContext context) {
+    // Ruang label bawah ikut membesar saat ukuran teks sistem diperbesar,
+    // agar persentase dan label minggu tidak terpotong (issue #8).
+    final bottomTitlesHeight = MediaQuery.textScalerOf(context).scale(38) + 6;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final groupWidth = (constraints.maxWidth - _leftTitlesWidth) / 2;
+        return SizedBox(
+          height: _plotHeight + bottomTitlesHeight,
+          child: _buildChart(
+            barWidth: (groupWidth * 0.45).clamp(16.0, 40.0).toDouble(),
+            labelWidth: groupWidth,
+            bottomTitlesHeight: bottomTitlesHeight,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChart({
+    required double barWidth,
+    required double labelWidth,
+    required double bottomTitlesHeight,
+  }) {
     final values = [lastWeek, thisWeek];
     final colors = [const Color(0xFFCBD5E1), AnalyticsScreen._navy];
 
@@ -381,7 +426,7 @@ class _WeeklyBarChart extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: _leftTitlesWidth,
               interval: 25,
               getTitlesWidget: (value, meta) => Text(
                 '${value.toInt()}%',
@@ -392,7 +437,7 @@ class _WeeklyBarChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 44,
+              reservedSize: bottomTitlesHeight,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= values.length) {
@@ -400,25 +445,33 @@ class _WeeklyBarChart extends StatelessWidget {
                 }
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        formatPercent(values[index]),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AnalyticsScreen._navy,
-                        ),
+                  // Label diperkecil (bukan dipotong) jika kolom grafik
+                  // lebih sempit dari teksnya.
+                  child: SizedBox(
+                    width: labelWidth,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            formatPercent(values[index]),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AnalyticsScreen._navy,
+                            ),
+                          ),
+                          Text(
+                            _labels[index],
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        _labels[index],
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -432,7 +485,7 @@ class _WeeklyBarChart extends StatelessWidget {
               barRods: [
                 BarChartRodData(
                   toY: values[i],
-                  width: 40,
+                  width: barWidth,
                   color: colors[i],
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(8),

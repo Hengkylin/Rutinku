@@ -16,18 +16,34 @@ void main() {
   DateTime daysAgo(int i) => DateTime(today.year, today.month, today.day - i);
   String key(int i) => DateFormat('yyyy-MM-dd').format(daysAgo(i));
 
-  Future<void> pumpScreen(WidgetTester tester, List<HabitModel> habits) async {
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    List<HabitModel> habits, {
+    Size size = const Size(360, 690),
+    double textScale = 1,
+  }) async {
     SharedPreferences.setMockInitialValues({
       HabitRepository.storageKey:
           json.encode(habits.map((h) => h.toMap()).toList()),
     });
     // Ukuran layar HP agar overflow tata letak ikut terdeteksi.
-    tester.view.physicalSize = const Size(360, 690);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: AnalyticsScreen())),
+      ProviderScope(
+        child: MaterialApp(
+          // Simulasi pengaturan ukuran teks sistem pengguna.
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+            ),
+            child: child!,
+          ),
+          home: const AnalyticsScreen(),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
   }
@@ -73,6 +89,71 @@ void main() {
     );
     expect(delta.data, '+100% dari minggu lalu');
     expect(delta.style?.color, const Color(0xFF16A34A));
+  });
+
+  group('layar sempit (issue #8)', () {
+    final longHabit = HabitModel(
+      id: '1',
+      title: 'Membaca Buku Pengembangan Diri',
+      records: [
+        for (var i = 0; i < 7; i++) HabitRecord(date: key(i)),
+        for (var i = 7; i < 14; i++)
+          HabitRecord(date: key(i), status: 'skipped'),
+      ],
+    );
+    final consistent = find.byKey(const Key('analytics_most_consistent'));
+    final missed = find.byKey(const Key('analytics_most_missed_day'));
+
+    testWidgets('layar 360dp: kartu ringkasan berdampingan', (tester) async {
+      await pumpScreen(tester, [longHabit]);
+
+      expect(tester.getTopLeft(missed).dy, tester.getTopLeft(consistent).dy);
+      expect(
+        tester.getTopLeft(missed).dx,
+        greaterThan(tester.getTopRight(consistent).dx),
+      );
+    });
+
+    testWidgets('layar 320dp: kartu ditumpuk dan judul tidak terpotong',
+        (tester) async {
+      await pumpScreen(tester, [longHabit], size: const Size(320, 640));
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getTopLeft(missed).dy,
+        greaterThan(tester.getBottomLeft(consistent).dy),
+      );
+      // Kartu memakai lebar penuh sehingga judul panjang muat utuh.
+      final title = find.descendant(
+        of: consistent,
+        matching: find.text('Membaca Buku Pengembangan Diri'),
+      );
+      expect(title, findsOneWidget);
+      expect(
+        (tester.renderObject(title) as dynamic).didExceedMaxLines as bool,
+        isFalse,
+      );
+    });
+
+    testWidgets('layar 320dp + teks 130%: grafik tanpa overflow',
+        (tester) async {
+      await pumpScreen(
+        tester,
+        [longHabit],
+        size: const Size(320, 640),
+        textScale: 1.3,
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('analytics_weekly_delta')),
+        200,
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(BarChart), findsOneWidget);
+      expect(find.text('Minggu Lalu'), findsOneWidget);
+      expect(find.text('Minggu Ini'), findsOneWidget);
+    });
   });
 
   group('formatProgressDelta', () {
