@@ -94,7 +94,7 @@ void main() {
   group('layar sempit (issue #8)', () {
     final longHabit = HabitModel(
       id: '1',
-      title: 'Membaca Buku Pengembangan Diri',
+      title: 'Membaca Buku Harian',
       records: [
         for (var i = 0; i < 7; i++) HabitRecord(date: key(i)),
         for (var i = 7; i < 14; i++)
@@ -123,10 +123,12 @@ void main() {
         tester.getTopLeft(missed).dy,
         greaterThan(tester.getBottomLeft(consistent).dy),
       );
-      // Kartu memakai lebar penuh sehingga judul panjang muat utuh.
+      // Kartu memakai lebar penuh sehingga judul muat utuh. Di test semua
+      // huruf berupa kotak selebar ukuran font (17px), jadi judul ini butuh
+      // 2 baris di 320dp tetapi 3 baris (terpotong) jika kartu berdampingan.
       final title = find.descendant(
         of: consistent,
-        matching: find.text('Membaca Buku Pengembangan Diri'),
+        matching: find.text('Membaca Buku Harian'),
       );
       expect(title, findsOneWidget);
       expect(
