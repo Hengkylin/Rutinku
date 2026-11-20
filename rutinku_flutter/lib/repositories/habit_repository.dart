@@ -20,6 +20,29 @@ class HabitRepository {
   })  : _notificationService = notificationService ?? NotificationService(),
         _clock = clock ?? DateTime.now;
 
+  /// Antrian operasi tulis bersama (issue #6).
+  ///
+  /// Setiap operasi tulis membaca SELURUH daftar dari SharedPreferences,
+  /// mengubah satu habit, lalu menulis ulang seluruh daftar. Tanpa antrian,
+  /// dua operasi yang berjalan bersamaan (mis. mencentang dua rutinitas
+  /// dengan cepat) membaca data lama yang sama dan tulisan terakhir menimpa
+  /// yang pertama, sehingga centang yang sudah tampil di layar hilang setelah
+  /// aplikasi ditutup paksa.
+  ///
+  /// Antrian sengaja per instance (bukan static): aplikasi hanya memakai satu
+  /// instance lewat `habitRepositoryProvider`, dan antrian static yang
+  /// dibagi lintas zona (mis. `tester.runAsync` vs FakeAsync di widget test)
+  /// bisa menunggu Future yang tidak pernah selesai di zona lain.
+  Future<void> _writeQueue = Future<void>.value();
+
+  /// Menjalankan [action] setelah semua operasi tulis sebelumnya selesai.
+  /// Error tetap diteruskan ke pemanggil tanpa menghentikan antrian.
+  Future<T> _locked<T>(Future<T> Function() action) {
+    final result = _writeQueue.then((_) => action());
+    _writeQueue = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
+  }
+
   /// Mengubah HabitModel.id (String) menjadi int untuk ID notifikasi (32-bit positive int)
   int _notificationIdFromHabitId(String id) {
     return id.hashCode & 0x7FFFFFFF;
@@ -98,20 +121,22 @@ class HabitRepository {
     String? parentHabitId,
     int targetValue = 1,
     String? unit,
-  }) async {
-    final habits = await fetchHabits();
-    final newHabit = HabitModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title,
-      category: category,
-      reminderTime: reminderTime,
-      parentHabitId: parentHabitId,
-      targetValue: targetValue,
-      unit: unit,
-    );
-    habits.add(newHabit);
-    await _saveHabitsToStorage(habits);
-    await _scheduleReminderIfPresent(newHabit);
+  }) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      final newHabit = HabitModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title,
+        category: category,
+        reminderTime: reminderTime,
+        parentHabitId: parentHabitId,
+        targetValue: targetValue,
+        unit: unit,
+      );
+      habits.add(newHabit);
+      await _saveHabitsToStorage(habits);
+      await _scheduleReminderIfPresent(newHabit);
+    });
   }
 
   // UPDATE (Edit): Mengubah data form dan simpan ke Storage
@@ -123,51 +148,57 @@ class HabitRepository {
     String? parentHabitId,
     int targetValue = 1,
     String? unit,
-  }) async {
-    final habits = await fetchHabits();
-    final index = habits.indexWhere((h) => h.id == id);
-    if (index != -1) {
-      final updatedHabit = habits[index].copyWith(
-        title: title,
-        category: category,
-        reminderTime: reminderTime,
-        parentHabitId: parentHabitId,
-        clearParentHabitId: parentHabitId == null,
-        targetValue: targetValue,
-        unit: unit,
-        clearUnit: unit == null,
-      );
-      habits[index] = updatedHabit;
-      await _saveHabitsToStorage(habits);
+  }) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      final index = habits.indexWhere((h) => h.id == id);
+      if (index != -1) {
+        final updatedHabit = habits[index].copyWith(
+          title: title,
+          category: category,
+          reminderTime: reminderTime,
+          parentHabitId: parentHabitId,
+          clearParentHabitId: parentHabitId == null,
+          targetValue: targetValue,
+          unit: unit,
+          clearUnit: unit == null,
+        );
+        habits[index] = updatedHabit;
+        await _saveHabitsToStorage(habits);
 
-      if (reminderTime.isNotEmpty) {
-        await _scheduleReminderIfPresent(updatedHabit);
-      } else {
-        await _notificationService.cancelReminder(_notificationIdFromHabitId(id));
+        if (reminderTime.isNotEmpty) {
+          await _scheduleReminderIfPresent(updatedHabit);
+        } else {
+          await _notificationService.cancelReminder(_notificationIdFromHabitId(id));
+        }
       }
-    }
+    });
   }
 
   // UPDATE (Gamifikasi): Mengubah status check-in dan simpan ke Storage
-  Future<void> toggleCheckIn(String id, DateTime date) async {
-    final habits = await fetchHabits();
-    final index = habits.indexWhere((h) => h.id == id);
-    if (index == -1) return;
+  Future<void> toggleCheckIn(String id, DateTime date) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      final index = habits.indexWhere((h) => h.id == id);
+      if (index == -1) return;
 
-    habits[index] = habits[index].toggleCheckIn(date);
-    await _saveHabitsToStorage(habits);
-    await _refreshReminderAfterRecordChange(habits[index], date);
+      habits[index] = habits[index].toggleCheckIn(date);
+      await _saveHabitsToStorage(habits);
+      await _refreshReminderAfterRecordChange(habits[index], date);
+    });
   }
 
   // UPDATE (Progressive Habit): Menambah progres angka harian (+1) dan simpan ke Storage
-  Future<void> incrementHabitProgress(String id, DateTime date) async {
-    final habits = await fetchHabits();
-    final index = habits.indexWhere((h) => h.id == id);
-    if (index == -1) return;
+  Future<void> incrementHabitProgress(String id, DateTime date) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      final index = habits.indexWhere((h) => h.id == id);
+      if (index == -1) return;
 
-    habits[index] = habits[index].incrementProgress(date);
-    await _saveHabitsToStorage(habits);
-    await _refreshReminderAfterRecordChange(habits[index], date);
+      habits[index] = habits[index].incrementProgress(date);
+      await _saveHabitsToStorage(habits);
+      await _refreshReminderAfterRecordChange(habits[index], date);
+    });
   }
 
   // UPDATE (Mood & Recovery Record): Mengubah status, mood, dan catatan refleksi
@@ -178,39 +209,41 @@ class HabitRepository {
     String? mood,
     String? note,
     String? momentImagePath,
-  }) async {
-    final habits = await fetchHabits();
-    final index = habits.indexWhere((h) => h.id == id);
-    if (index != -1) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final habit = habits[index];
-      final updatedRecords = List<HabitRecord>.from(habit.records);
-      final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+  }) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      final index = habits.indexWhere((h) => h.id == id);
+      if (index != -1) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        final habit = habits[index];
+        final updatedRecords = List<HabitRecord>.from(habit.records);
+        final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
 
-      if (recordIndex != -1) {
-        // copyWith agar field lain (mis. currentValue) tidak hilang
-        updatedRecords[recordIndex] = updatedRecords[recordIndex].copyWith(
-          status: status,
-          mood: mood,
-          note: note,
-          momentImagePath: momentImagePath,
-        );
-      } else {
-        updatedRecords.add(
-          HabitRecord(
-            date: dateStr,
-            status: status ?? 'completed',
+        if (recordIndex != -1) {
+          // copyWith agar field lain (mis. currentValue) tidak hilang
+          updatedRecords[recordIndex] = updatedRecords[recordIndex].copyWith(
+            status: status,
             mood: mood,
             note: note,
             momentImagePath: momentImagePath,
-          ),
-        );
-      }
+          );
+        } else {
+          updatedRecords.add(
+            HabitRecord(
+              date: dateStr,
+              status: status ?? 'completed',
+              mood: mood,
+              note: note,
+              momentImagePath: momentImagePath,
+            ),
+          );
+        }
 
-      habits[index] = habit.copyWith(records: updatedRecords);
-      await _saveHabitsToStorage(habits);
-      await _refreshReminderAfterRecordChange(habits[index], date);
-    }
+        habits[index] = habit.copyWith(records: updatedRecords);
+        await _saveHabitsToStorage(habits);
+        await _refreshReminderAfterRecordChange(habits[index], date);
+      }
+    });
   }
 
   // UPDATE (Visual Habit Journal): Menyimpan path foto momen ke check-in hari ini
@@ -218,50 +251,56 @@ class HabitRepository {
     String id,
     DateTime date,
     String imagePath,
-  ) async {
-    final habits = await fetchHabits();
-    final index = habits.indexWhere((h) => h.id == id);
-    if (index != -1) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final habit = habits[index];
-      final updatedRecords = List<HabitRecord>.from(habit.records);
-      final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
+  ) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      final index = habits.indexWhere((h) => h.id == id);
+      if (index != -1) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        final habit = habits[index];
+        final updatedRecords = List<HabitRecord>.from(habit.records);
+        final recordIndex = updatedRecords.indexWhere((r) => r.date == dateStr);
 
-      if (recordIndex != -1) {
-        final existing = updatedRecords[recordIndex];
-        updatedRecords[recordIndex] = existing.copyWith(
-          status: 'completed',
-          momentImagePath: imagePath,
-        );
-      } else {
-        updatedRecords.add(
-          HabitRecord(
-            date: dateStr,
+        if (recordIndex != -1) {
+          final existing = updatedRecords[recordIndex];
+          updatedRecords[recordIndex] = existing.copyWith(
             status: 'completed',
             momentImagePath: imagePath,
-          ),
-        );
-      }
+          );
+        } else {
+          updatedRecords.add(
+            HabitRecord(
+              date: dateStr,
+              status: 'completed',
+              momentImagePath: imagePath,
+            ),
+          );
+        }
 
-      habits[index] = habit.copyWith(records: updatedRecords);
-      await _saveHabitsToStorage(habits);
-      await _refreshReminderAfterRecordChange(habits[index], date);
-    }
+        habits[index] = habit.copyWith(records: updatedRecords);
+        await _saveHabitsToStorage(habits);
+        await _refreshReminderAfterRecordChange(habits[index], date);
+      }
+    });
   }
 
   // DELETE: Menghapus data dan simpan perubahan ke Storage
-  Future<void> deleteHabit(String id) async {
-    final habits = await fetchHabits();
-    habits.removeWhere((h) => h.id == id);
-    await _saveHabitsToStorage(habits);
-    await _notificationService.cancelReminder(_notificationIdFromHabitId(id));
+  Future<void> deleteHabit(String id) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      habits.removeWhere((h) => h.id == id);
+      await _saveHabitsToStorage(habits);
+      await _notificationService.cancelReminder(_notificationIdFromHabitId(id));
+    });
   }
 
   // RESTORE (Undo): Mengembalikan data yang terhapus ke Storage
-  Future<void> restoreHabit(HabitModel habit) async {
-    final habits = await fetchHabits();
-    habits.add(habit);
-    await _saveHabitsToStorage(habits);
-    await _scheduleReminderIfPresent(habit);
+  Future<void> restoreHabit(HabitModel habit) {
+    return _locked(() async {
+      final habits = await fetchHabits();
+      habits.add(habit);
+      await _saveHabitsToStorage(habits);
+      await _scheduleReminderIfPresent(habit);
+    });
   }
 }
