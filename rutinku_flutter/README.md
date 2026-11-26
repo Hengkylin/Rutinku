@@ -42,7 +42,17 @@ Banyak orang kesulitan mempertahankan konsistensi saat mencoba membangun kebiasa
 1. **Fungsi Autentikasi Berjalan:** Pengguna dapat mendaftar akun baru dan memverifikasi email, melakukan *login*, meminta kode *reset password* 6 digit lewat email, memasukkan kode tersebut di aplikasi untuk membuat password baru, serta memperoleh sesi akses yang terisolasi untuk data akun miliknya sendiri melalui Supabase Auth.
 2. **Persistensi Lokal & Sinkronisasi Cloud Sukses:** Data kebiasaan tersimpan utuh di perangkat meskipun aplikasi ditutup, serta operasi *Backup*, *Fetch*, dan *Restore* ke *Cloud Database* Supabase berjalan lancar sehingga data tidak hilang saat pengguna masuk di perangkat Android lain.
 3. **Notifikasi *Background* & Kamera Berfungsi Aman:** Pengingat lokal muncul sesuai jadwal yang ditentukan pengguna dan fitur *"Abadikan Momen"* berhasil menyimpan foto jurnal kebiasaan tanpa menyebabkan *crash* meskipun izin perangkat ditolak atau aksi dibatalkan.
-4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **167 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
+4. **Akurasi Logika Waktu & Pengujian Terverifikasi:** Perhitungan *streak* bertambah saat *check-in*, mendukung toleransi hari berjalan serta mode istirahat, dan seluruh **206 Unit & Widget Test** lulus 100% (`flutter test` & `flutter analyze` bersih tanpa isu).
+
+## Alur Branch & CI/CD
+
+| Branch | Fungsi |
+| --- | --- |
+| `main` / `v1.0` | Rilis yang sudah OK |
+| `v1.0_dev` | Fitur & perbaikan bug yang sedang diuji; setiap push yang lolos semua unit test otomatis di-build dan di-deploy ke pre-release **dev-latest** |
+| `v1.1` | Rilis berikutnya (tag `v1.1.0`) |
+
+Jika ada unit test yang gagal, GitHub Actions membatalkan build dan deploy sehingga versi Live tetap aman. Detail dan bukti pengujian: [Dokumentasi P11](../docs/Dokumentasi_P11_Branching_CICD.md).
 
 ## Lisensi
 

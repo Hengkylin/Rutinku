@@ -144,7 +144,7 @@ Konfigurasi berikut sudah diterapkan di project (tidak perlu diubah manual):
 ## 6. Pengujian Otomatis & Analisis Kode
 
 ```bash
-# Seluruh unit test & widget test (167 test)
+# Seluruh unit test & widget test (206 test)
 flutter test
 
 # Pengujian sistem log: AppLogger (file, rotasi, error & stack trace, log Supabase, sensor data) & layar Log Aplikasi
@@ -201,8 +201,19 @@ Workflow `.github/workflows/flutter-ci.yml` berjalan otomatis di GitHub:
 
 | Pemicu | Yang dijalankan | Hasil |
 |---|---|---|
-| Push / Pull Request ke `main` | `flutter analyze` → `flutter test` → `flutter build apk --release` | Status ✅/❌ di tab **Actions**; APK bisa diunduh dari bagian **Artifacts** (disimpan 14 hari) |
+| Push / Pull Request ke `main`, `v1.0`, `v1.0_dev`, `v1.1` | `flutter analyze` → `flutter test` → `flutter build apk --release` | Status ✅/❌ di tab **Actions**, tabel ringkasan **Total / Passed / Failed** di halaman run; APK di bagian **Artifacts** (14 hari) |
+| Push ke `v1.0_dev` dan semua tes hijau | Semua langkah di atas + **Deploy Live** | Pre-release **`dev-latest`** di halaman **Releases** otomatis diganti APK terbaru (`RutinKu-dev-latest.apk`) untuk diuji tester |
 | Push tag versi, mis. `v1.0.0-rc.2` | Semua langkah di atas + membuat **GitHub Release** | `RutinKu-v1.0.0-rc.2.apk` terlampir di halaman **Releases** (tag berisi `-` ditandai *pre-release*) |
+
+**Jika ada unit test yang gagal:** job *Analyze & Test* merah, daftar tes yang gagal tampil di ringkasan run, dan job **Build APK** serta **Deploy Live** tidak dijalankan (*skipped*). Akibatnya APK di `dev-latest` tetap versi terakhir yang lolos tes, sehingga tester tidak pernah menerima build yang rusak.
+
+**Alur branch:**
+
+| Branch | Fungsi |
+|---|---|
+| `main` / `v1.0` | Rilis yang sudah OK (`v1.0.0-rc.2`) |
+| `v1.0_dev` | Penambahan fitur & perbaikan bug yang sedang diuji; setiap push hijau otomatis di-deploy ke `dev-latest` |
+| `v1.1` | Rilis berikutnya hasil `v1.0_dev` (tag `v1.1.0`) |
 
 Merilis versi baru:
 
