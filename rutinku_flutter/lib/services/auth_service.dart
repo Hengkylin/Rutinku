@@ -43,7 +43,37 @@ class AuthService {
       return 'Kode salah atau sudah kedaluwarsa. Periksa email terbaru, atau '
           'tekan "Kirim ulang kode".';
     }
-    return error.message;
+    return errorMessage(error);
+  }
+
+  /// Pesan untuk pengguna saat koneksi ke server gagal.
+  static const String networkErrorMessage =
+      'Tidak dapat terhubung ke server. Periksa koneksi internet, lalu coba '
+      'lagi.';
+
+  /// Pesan ramah untuk error apa pun dari aksi auth. Error jaringan
+  /// (mis. "ClientException with SocketException: Failed host lookup")
+  /// tidak ditampilkan mentah; error lain dari Supabase tetap memakai
+  /// pesannya. Detail aslinya tetap tercatat di log lewat `_traced`.
+  static String errorMessage(Object error) {
+    final text = error is AuthException ? error.message : error.toString();
+    if (isNetworkError(text)) return networkErrorMessage;
+    if (error is AuthException) return error.message;
+    return 'Terjadi kesalahan: $error';
+  }
+
+  /// `true` jika teks error menandakan perangkat tidak bisa mencapai server.
+  static bool isNetworkError(String text) {
+    const markers = [
+      'SocketException',
+      'Failed host lookup',
+      'ClientException',
+      'Connection refused',
+      'Connection reset',
+      'Network is unreachable',
+      'TimeoutException',
+    ];
+    return markers.any(text.contains);
   }
 
   User? get currentUser => _auth.currentUser;

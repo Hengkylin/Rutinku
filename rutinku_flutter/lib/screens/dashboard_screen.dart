@@ -10,6 +10,7 @@ import '../widgets/habit_card.dart';
 import '../widgets/reflection_bottom_sheet.dart';
 import '../utils/camera_helper.dart';
 import 'template_screen.dart';
+import 'reminder_screen.dart';
 import 'sync_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -130,17 +131,35 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.notifications_outlined,
-                              color: Colors.white,
-                              size: 22,
+                          // Lonceng -> halaman Pengingat (sebelumnya hanya
+                          // hiasan tanpa aksi).
+                          Tooltip(
+                            message: 'Pengingat',
+                            child: InkWell(
+                              key: const Key('dashboard_reminder_button'),
+                              borderRadius: BorderRadius.circular(21),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ReminderScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_outlined,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
                             ),
                           ),
                         ],

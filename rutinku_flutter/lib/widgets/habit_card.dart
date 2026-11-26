@@ -256,11 +256,17 @@ class HabitCard extends ConsumerWidget {
                             color: Colors.grey.shade500,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            hasReminder ? reminderTime : 'Tanpa pengingat',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
+                          // Flexible: di kolom sempit / huruf besar teks
+                          // turun ke baris baru, bukan overflow.
+                          Flexible(
+                            child: Text(
+                              hasReminder ? reminderTime : 'Tanpa pengingat',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -283,12 +289,16 @@ class HabitCard extends ConsumerWidget {
                             children: [
                               const Text('🔥', style: TextStyle(fontSize: 10)),
                               const SizedBox(width: 3),
-                              Text(
-                                '$streakCount hari',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFFEA580C),
+                              Flexible(
+                                child: Text(
+                                  '$streakCount hari',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFEA580C),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Wajib untuk build release: tanpa ini APK tidak bisa menghubungi
+         Supabase ("Failed host lookup"). Manifest debug/profile sudah punya. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="RutinKu"
