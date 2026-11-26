@@ -63,9 +63,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       );
     } on AuthException catch (e) {
-      if (mounted) _showMessage(e.message);
+      if (mounted) _showMessage(AuthService.errorMessage(e));
     } catch (e) {
-      if (mounted) _showMessage('Terjadi kesalahan: $e');
+      if (mounted) _showMessage(AuthService.errorMessage(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

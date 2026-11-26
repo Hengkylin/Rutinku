@@ -73,7 +73,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, 'Terjadi kesalahan: $e', isError: true);
+        showAppSnackBar(context, AuthService.errorMessage(e), isError: true);
       }
     } finally {
       if (mounted) setState(() => _isVerifying = false);
@@ -89,10 +89,10 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
       showAppSnackBar(context, 'Kode baru telah dikirim ke email Anda');
     } on AuthException catch (e) {
       // Mis. "For security purposes, you can only request this after N seconds."
-      if (mounted) showAppSnackBar(context, e.message, isError: true);
+      if (mounted) showAppSnackBar(context, AuthService.errorMessage(e), isError: true);
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, 'Terjadi kesalahan: $e', isError: true);
+        showAppSnackBar(context, AuthService.errorMessage(e), isError: true);
       }
     } finally {
       if (mounted) setState(() => _isResending = false);

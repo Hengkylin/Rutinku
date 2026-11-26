@@ -55,10 +55,10 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
         (route) => false,
       );
     } on AuthException catch (e) {
-      if (mounted) showAppSnackBar(context, e.message, isError: true);
+      if (mounted) showAppSnackBar(context, AuthService.errorMessage(e), isError: true);
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, 'Terjadi kesalahan: $e', isError: true);
+        showAppSnackBar(context, AuthService.errorMessage(e), isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
