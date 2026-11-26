@@ -28,6 +28,9 @@ class SyncRepository {
   /// `true` jika ada pengguna yang login (dipakai sinkron otomatis).
   bool get isLoggedIn => currentUser != null;
 
+  /// ID pengguna aktif; dipakai untuk menandai pemilik data lokal.
+  String? get currentUserId => currentUser?.id;
+
   /// Email pengguna aktif, ditampilkan di SyncScreen.
   String? get currentUserEmail => currentUser?.email;
 

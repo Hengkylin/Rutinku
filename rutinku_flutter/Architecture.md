@@ -158,7 +158,7 @@ rutinku_flutter/
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 ├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (267 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (273 Unit & Widget Test)
 │   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
 │   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)

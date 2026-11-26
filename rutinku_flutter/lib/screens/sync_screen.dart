@@ -140,6 +140,9 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
 
   Future<void> _handleLogout() async {
     try {
+      // Kirim perubahan tertunda & simpan data lokal untuk akun ini, agar
+      // akun berikutnya tidak melihat rutinitas akun ini.
+      await ref.read(autoSyncProvider.notifier).prepareLogout();
       await ref.read(syncRepositoryProvider).signOut();
     } catch (e) {
       if (!mounted) return;

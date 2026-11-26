@@ -9,6 +9,7 @@ import '../models/habit_model.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/sync_repository.dart';
 import '../services/app_logger.dart';
+import '../services/notification_service.dart';
 import 'habit_notifier.dart';
 import 'sync_notifier.dart';
 import 'today_notifier.dart';
@@ -71,6 +72,11 @@ final autoSyncDebounceProvider =
 final autoSyncRetryProvider =
     Provider<Duration>((ref) => const Duration(minutes: 1));
 
+/// Membatalkan semua pengingat di HP (dipakai saat data lokal berganti
+/// akun). Bisa diganti di tes.
+final autoSyncCancelRemindersProvider = Provider<Future<void> Function()>(
+    (ref) => NotificationService().cancelAllReminders);
+
 /// Sinkronisasi otomatis "snapshot" ke Supabase (tabel `user_data`):
 /// - backup otomatis beberapa detik setelah data rutinitas berubah;
 /// - restore otomatis saat login di HP yang datanya masih kosong;
@@ -92,6 +98,21 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
   static const String lastSyncKey = 'rutinku_last_sync_at';
   static const String pendingKey = 'rutinku_sync_pending';
 
+  /// ID akun pemilik data rutinitas lokal. Data lokal (SharedPreferences)
+  /// dipakai bersama semua akun di HP yang sama, jadi harus ditandai agar
+  /// rutinitas akun A tidak muncul (dan ter-backup) di akun B.
+  static const String ownerKey = 'rutinku_data_owner';
+
+  /// Kunci yang disimpan per akun saat berganti akun.
+  static const List<String> perAccountKeys = [
+    HabitRepository.storageKey,
+    lastSyncKey,
+    pendingKey,
+  ];
+
+  /// Kunci simpanan data lokal milik akun [userId] yang sedang tidak login.
+  static String stashKey(String key, String userId) => '${key}__$userId';
+
   late SyncRepository _repo;
   late Clock _clock;
   late Duration _debounce;
@@ -102,6 +123,10 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
   String? _lastSeenJson;
   String? _lastSyncedJson;
   bool _disposed = false;
+
+  /// True selama cek awal: perubahan daftar rutinitas yang dipicu oleh
+  /// pergantian akun / restore otomatis tidak boleh memicu upload.
+  bool _initializing = false;
 
   @override
   AutoSyncState build() {
@@ -176,6 +201,37 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
     }
   }
 
+  /// Dipanggil sebelum logout: kirim perubahan yang tertunda (jika bisa),
+  /// lalu pindahkan data lokal ke simpanan milik akun ini dan kosongkan
+  /// layar, agar akun berikutnya tidak melihat rutinitas akun ini. Data
+  /// tidak dihapus: akan dikembalikan saat akun yang sama login lagi.
+  Future<void> prepareLogout() async {
+    _debounceTimer?.cancel();
+    _retryTimer?.cancel();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pending = prefs.getBool(pendingKey) ?? false;
+      if (_loggedIn() &&
+          state.enabled &&
+          state.status != AutoSyncStatus.conflict &&
+          (pending ||
+              state.status == AutoSyncStatus.pending ||
+              state.status == AutoSyncStatus.error)) {
+        await _backup(scheduleRetry: false);
+      }
+      final owner = prefs.getString(ownerKey) ?? _userId();
+      if (owner != null) await _stash(prefs, owner);
+      await prefs.remove(ownerKey);
+      await _cancelReminders();
+      _lastSyncedJson = null;
+      _update((s) => const AutoSyncState(status: AutoSyncStatus.notLoggedIn));
+      ref.invalidate(habitNotifierProvider);
+      _log.info('Data lokal disimpan untuk akun sebelumnya (logout)');
+    } catch (e, s) {
+      _log.warning('Gagal menyiapkan logout', e, s);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Alur internal
   // ---------------------------------------------------------------------------
@@ -195,18 +251,106 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
     final prefs = await SharedPreferences.getInstance();
     if (_disposed) return;
     final enabled = prefs.getBool(enabledKey) ?? true;
-    final last = DateTime.tryParse(prefs.getString(lastSyncKey) ?? '');
-    _update((s) => s.copyWith(enabled: enabled, lastSyncedAt: last));
+    _update((s) => s.copyWith(enabled: enabled));
 
     if (!_loggedIn()) {
       _update((s) => s.copyWith(status: AutoSyncStatus.notLoggedIn));
       return;
     }
-    if (!enabled) {
-      _update((s) => s.copyWith(status: AutoSyncStatus.off));
-      return;
+
+    _initializing = true;
+    try {
+      // Pastikan data lokal milik akun yang login (berlaku juga saat
+      // sinkron otomatis dimatikan).
+      await _ensureOwner(prefs);
+      if (_disposed) return;
+      final last = DateTime.tryParse(prefs.getString(lastSyncKey) ?? '');
+      _update((s) => s.copyWith(lastSyncedAt: last));
+      if (!enabled) {
+        _update((s) => s.copyWith(status: AutoSyncStatus.off));
+        return;
+      }
+      await _initialSync(prefs, hasSyncedBefore: last != null);
+    } finally {
+      _initializing = false;
     }
-    await _initialSync(prefs, hasSyncedBefore: last != null);
+    // Perubahan pengguna selama cek awal tetap dikirim.
+    if (state.status == AutoSyncStatus.synced &&
+        (prefs.getString(HabitRepository.storageKey) ?? '[]') !=
+            _lastSyncedJson) {
+      _onLocalChange();
+    }
+  }
+
+  /// Menukar data lokal bila milik akun lain: data akun lama disimpan
+  /// (tidak dihapus), data akun ini dikembalikan dari simpanan bila ada.
+  /// Data tanpa pemilik (versi lama aplikasi) dianggap milik akun ini.
+  Future<void> _ensureOwner(SharedPreferences prefs) async {
+    final uid = _userId();
+    if (uid == null) return;
+    final owner = prefs.getString(ownerKey);
+    if (owner == uid) return;
+
+    var changed = false;
+    if (owner != null) {
+      await _stash(prefs, owner);
+      changed = true;
+      _log.info('Data lokal milik akun lain disimpan, berganti akun');
+    }
+    final restored = await _unstash(prefs, uid);
+    changed = changed || restored;
+    await prefs.setString(ownerKey, uid);
+
+    if (changed) {
+      _lastSyncedJson = null;
+      await _cancelReminders();
+      ref.invalidate(habitNotifierProvider);
+    }
+  }
+
+  /// Memindahkan data lokal saat ini ke simpanan milik [userId].
+  Future<void> _stash(SharedPreferences prefs, String userId) async {
+    for (final key in perAccountKeys) {
+      final value = prefs.get(key);
+      final target = stashKey(key, userId);
+      if (value is String) {
+        await prefs.setString(target, value);
+      } else if (value is bool) {
+        await prefs.setBool(target, value);
+      } else {
+        await prefs.remove(target);
+      }
+      await prefs.remove(key);
+    }
+  }
+
+  /// Mengembalikan simpanan milik [userId]; false bila tidak ada.
+  Future<bool> _unstash(SharedPreferences prefs, String userId) async {
+    final hasStash = perAccountKeys
+        .any((key) => prefs.containsKey(stashKey(key, userId)));
+    if (!hasStash) return false;
+    for (final key in perAccountKeys) {
+      final source = stashKey(key, userId);
+      final value = prefs.get(source);
+      if (value is String) {
+        await prefs.setString(key, value);
+      } else if (value is bool) {
+        await prefs.setBool(key, value);
+      } else {
+        await prefs.remove(key);
+      }
+      await prefs.remove(source);
+    }
+    _log.info('Data lokal akun ini dikembalikan dari simpanan');
+    return true;
+  }
+
+  Future<void> _cancelReminders() async {
+    try {
+      await ref.read(autoSyncCancelRemindersProvider)();
+    } catch (e, s) {
+      _log.warning('Gagal membatalkan pengingat', e, s);
+    }
   }
 
   Future<void> _initialSync(
@@ -258,6 +402,7 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
   }
 
   void _onLocalChange() {
+    if (_initializing) return;
     if (!state.enabled ||
         state.status == AutoSyncStatus.conflict ||
         state.status == AutoSyncStatus.notLoggedIn ||
@@ -281,7 +426,7 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
     }
   }
 
-  Future<void> _backup() async {
+  Future<void> _backup({bool scheduleRetry = true}) async {
     _debounceTimer?.cancel();
     _retryTimer?.cancel();
     if (_disposed) return;
@@ -307,15 +452,15 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
     } catch (e, s) {
       _log.warning('Backup otomatis gagal, akan dicoba lagi', e, s);
       await prefs.setBool(pendingKey, true);
-      _failed();
+      _failed(scheduleRetry: scheduleRetry);
     }
   }
 
-  void _failed() {
+  void _failed({bool scheduleRetry = true}) {
     if (_disposed) return;
     _update((s) => s.copyWith(status: AutoSyncStatus.error));
     _retryTimer?.cancel();
-    _retryTimer = Timer(_retryDelay, _backup);
+    if (scheduleRetry) _retryTimer = Timer(_retryDelay, _backup);
   }
 
   Future<void> _markSynced(SharedPreferences prefs) async {
@@ -323,6 +468,14 @@ class AutoSyncNotifier extends Notifier<AutoSyncState> {
     await prefs.setString(lastSyncKey, now.toIso8601String());
     await prefs.setBool(pendingKey, false);
     _update((s) => s.copyWith(status: AutoSyncStatus.synced, lastSyncedAt: now));
+  }
+
+  String? _userId() {
+    try {
+      return _repo.currentUserId;
+    } catch (_) {
+      return null;
+    }
   }
 
   bool _loggedIn() {

@@ -73,6 +73,7 @@ void main() {
   setUp(() {
     repo = MockSyncRepository();
     when(() => repo.isLoggedIn).thenReturn(true);
+    when(() => repo.currentUserId).thenReturn('user-a');
     when(() => repo.currentUserEmail).thenReturn('user@rutinku.com');
     when(() => repo.fetchHabitsFromCloud()).thenAnswer((_) async => []);
     when(() => repo.backupHabitsToCloud()).thenAnswer((_) async => true);
@@ -94,6 +95,7 @@ void main() {
       autoSyncDebounceProvider
           .overrideWithValue(const Duration(milliseconds: 30)),
       autoSyncRetryProvider.overrideWithValue(const Duration(milliseconds: 60)),
+      autoSyncCancelRemindersProvider.overrideWithValue(() async {}),
     ]);
     addTearDown(container.dispose);
     // autoDispose: tetap hidup selama didengarkan.
@@ -362,6 +364,130 @@ void main() {
       await c.read(autoSyncProvider.notifier).syncNow();
       verifyNever(() => repo.backupHabitsToCloud());
       expect(statusOf(c), AutoSyncStatus.synced);
+    });
+  });
+
+  group('Data lokal per akun', () {
+    String? stored(SharedPreferences prefs, String key) => prefs.getString(key);
+    String stash(String key, String uid) => AutoSyncNotifier.stashKey(key, uid);
+    const habitsKey = HabitRepository.storageKey;
+
+    test('data tanpa pemilik (versi lama) dianggap milik akun yang login',
+        () async {
+      await setLocal([habit('a')]);
+      makeContainer();
+      await wait();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(stored(prefs, AutoSyncNotifier.ownerKey), 'user-a');
+      expect(decode(stored(prefs, habitsKey)!).single.id, 'a');
+    });
+
+    test('login akun lain: data akun lama disimpan, data cloud dipulihkan',
+        () async {
+      await setLocal([habit('b1')], extra: {
+        AutoSyncNotifier.ownerKey: 'user-b',
+        AutoSyncNotifier.lastSyncKey: DateTime(2026, 11, 20).toIso8601String(),
+      });
+      final cloudA = [habit('a1')];
+      when(() => repo.fetchHabitsFromCloud()).thenAnswer((_) async => cloudA);
+      when(() => repo.restoreHabitsFromCloud()).thenAnswer((_) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(habitsKey, encode(cloudA));
+        return cloudA;
+      });
+      final c = makeContainer();
+      await wait(100);
+
+      // Data akun B tidak pernah dikirim ke cloud akun A.
+      verifyNever(() => repo.backupHabitsToCloud());
+      verify(() => repo.restoreHabitsFromCloud()).called(1);
+      expect(statusOf(c), AutoSyncStatus.synced);
+      final habits = await c.read(habitNotifierProvider.future);
+      expect(habits.map((h) => h.id), ['a1']);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(stored(prefs, AutoSyncNotifier.ownerKey), 'user-a');
+      expect(decode(stored(prefs, stash(habitsKey, 'user-b'))!).single.id,
+          'b1');
+      expect(prefs.containsKey(stash(AutoSyncNotifier.lastSyncKey, 'user-b')),
+          isTrue);
+    });
+
+    test('login akun lain tetap aman walau sinkron otomatis mati', () async {
+      await setLocal([habit('b1')], extra: {
+        AutoSyncNotifier.ownerKey: 'user-b',
+        AutoSyncNotifier.enabledKey: false,
+      });
+      final c = makeContainer();
+      await wait();
+
+      expect(statusOf(c), AutoSyncStatus.off);
+      expect(await c.read(habitNotifierProvider.future), isEmpty);
+      verifyNever(() => repo.backupHabitsToCloud());
+    });
+
+    test('akun lama login lagi: datanya dikembalikan dari simpanan',
+        () async {
+      await setLocal([habit('b1')], extra: {
+        AutoSyncNotifier.ownerKey: 'user-b',
+        stash(habitsKey, 'user-a'): encode([habit('a1'), habit('a2')]),
+        stash(AutoSyncNotifier.lastSyncKey, 'user-a'):
+            DateTime(2026, 11, 20).toIso8601String(),
+      });
+      when(() => repo.fetchHabitsFromCloud())
+          .thenAnswer((_) async => [habit('a1'), habit('a2')]);
+      final c = makeContainer();
+      await wait();
+
+      expect(statusOf(c), AutoSyncStatus.synced);
+      verifyNever(() => repo.backupHabitsToCloud());
+      final habits = await c.read(habitNotifierProvider.future);
+      expect(habits.map((h) => h.id), ['a1', 'a2']);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey(stash(habitsKey, 'user-a')), isFalse);
+      expect(decode(stored(prefs, stash(habitsKey, 'user-b'))!).single.id,
+          'b1');
+    });
+
+    test('logout: data disimpan untuk akun ini dan layar dikosongkan',
+        () async {
+      await setLocal([habit('a')]);
+      when(() => repo.fetchHabitsFromCloud())
+          .thenAnswer((_) async => [habit('a')]);
+      final c = makeContainer();
+      await wait();
+
+      await c.read(autoSyncProvider.notifier).prepareLogout();
+      await wait();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey(habitsKey), isFalse);
+      expect(prefs.containsKey(AutoSyncNotifier.ownerKey), isFalse);
+      expect(decode(stored(prefs, stash(habitsKey, 'user-a'))!).single.id,
+          'a');
+      expect(await c.read(habitNotifierProvider.future), isEmpty);
+      verifyNever(() => repo.backupHabitsToCloud());
+    });
+
+    test('logout dengan perubahan tertunda: dikirim dulu sebelum disimpan',
+        () async {
+      await setLocal([habit('a')]);
+      when(() => repo.fetchHabitsFromCloud())
+          .thenAnswer((_) async => [habit('a')]);
+      final c = makeContainer();
+      await wait();
+
+      await (c.read(habitNotifierProvider.notifier) as FakeHabitNotifier)
+          .save([habit('a'), habit('b')]);
+      expect(statusOf(c), AutoSyncStatus.pending);
+
+      await c.read(autoSyncProvider.notifier).prepareLogout();
+      verify(() => repo.backupHabitsToCloud()).called(1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(decode(stored(prefs, stash(habitsKey, 'user-a'))!).length, 2);
+      expect(prefs.getBool(stash(AutoSyncNotifier.pendingKey, 'user-a')),
+          isFalse);
     });
   });
 
