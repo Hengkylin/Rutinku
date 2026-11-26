@@ -202,8 +202,7 @@ class HabitModel {
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
     // Hitung mundur terus: jika selesai -> streak++, jika libur (rest) -> jembatani tanpa memutus streak
-    // DEMO P11 (bug sengaja): hari istirahat tidak lagi menjembatani streak.
-    while (isCompletedOn(checkDate)) {
+    while (isCompletedOn(checkDate) || isRestOn(checkDate)) {
       if (isCompletedOn(checkDate)) {
         streak++;
       }
