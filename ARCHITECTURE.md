@@ -127,6 +127,7 @@ rutinku_flutter/
 │   ├── screens/                          # Halaman antarmuka utama (Presentation Layer)
 │   │   ├── analytics_screen.dart         # Halaman Analitik (kartu ringkasan & BarChart komparasi mingguan)
 │   │   ├── log_viewer_screen.dart        # Halaman Log Aplikasi (lihat, salin, hapus log)
+│   │   ├── reminder_screen.dart          # Halaman Pengingat (dibuka dari ikon lonceng Dashboard)
 │   │   ├── login_screen.dart             # Halaman Login (/login; tekan lama logo → Log Aplikasi)
 │   │   ├── register_screen.dart          # Halaman Registrasi akun baru + dialog verifikasi email (/register)
 │   │   ├── forgot_password_screen.dart   # Halaman Lupa Password, kirim kode reset 6 digit (/forgot-password)
@@ -155,7 +156,7 @@ rutinku_flutter/
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 ├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (206 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (222 Unit & Widget Test)
 │   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
 │   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
@@ -168,8 +169,11 @@ rutinku_flutter/
 │   ├── edge_cases_test.dart              # Widget/unit test validasi input, empty state, & izin notifikasi aman
 │   ├── template_screen_test.dart         # Widget test alur pemilihan templat kebiasaan
 │   ├── habit_title_guard_test.dart       # Unit test HabitNotifier menolak nama kebiasaan kosong/tak terlihat (issue #5)
+│   ├── habit_card_overflow_test.dart     # Widget test HabitCard tidak overflow di layar sempit / huruf besar
 │   ├── habit_model_test.dart             # Unit test HabitRecord & HabitModel (serialisasi, check-in, progres, streak, progres mingguan)
 │   ├── habit_write_queue_test.dart       # Unit test antrian tulis HabitRepository: check-in cepat tidak saling menimpa (issue #6)
+│   ├── network_error_test.dart           # Izin INTERNET di manifest release + pesan error jaringan AuthService
+│   ├── reminder_screen_test.dart         # Widget test halaman Pengingat (urutan, status, form edit, izin, lonceng Dashboard)
 │   ├── reminder_skip_completed_test.dart # Unit test pengingat dilewati hari ini setelah rutinitas selesai (issue #7)
 │   ├── today_notifier_test.dart          # Unit & widget test todayProvider (pergantian hari 00:00 & resume, streak putus) (issue #4)
 │   ├── validators_test.dart              # Unit test aturan input terpusat (nama, telepon, target, email, password)
