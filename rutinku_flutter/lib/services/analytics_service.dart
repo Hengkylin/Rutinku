@@ -64,6 +64,8 @@ class AnalyticsService {
           continue;
         }
         if (record.status == 'rest' || habit.isCompletedOn(date)) continue;
+        // Hari di luar jadwal rutinitas bukan kegagalan.
+        if (!habit.isScheduledOn(date)) continue;
         missedPerWeekday[date.weekday - 1]++;
       }
     }
@@ -97,31 +99,47 @@ class AnalyticsService {
   }
 
   /// Persentase (0–100) hari selesai untuk [habit] dalam [days] hari,
-  /// mundur mulai dari [startDaysAgo] hari sebelum [now].
+  /// mundur mulai dari [startDaysAgo] hari sebelum [now]. Hanya hari yang
+  /// dijadwalkan yang dihitung (jadwal Sen/Rab/Jum -> pembagi 3 per minggu).
   double completionRate(
     HabitModel habit, {
     required int startDaysAgo,
     required int days,
   }) {
-    if (days <= 0) return 0;
-    return _completedDays(habit, startDaysAgo, days) / days * 100;
+    final scheduled = _scheduledDays(habit, startDaysAgo, days);
+    if (scheduled == 0) return 0;
+    return _completedDays(habit, startDaysAgo, days) / scheduled * 100;
   }
 
-  /// Persentase gabungan semua habit: total (habit, hari) yang selesai
-  /// dibagi jumlah habit × [days].
+  /// Persentase gabungan semua habit: total (habit, hari terjadwal) yang
+  /// selesai dibagi total (habit, hari terjadwal).
   double _overallCompletionRate({required int startDaysAgo, required int days}) {
     if (habits.isEmpty || days <= 0) return 0;
-    final completed = habits.fold<int>(
-      0,
-      (sum, habit) => sum + _completedDays(habit, startDaysAgo, days),
-    );
-    return completed / (habits.length * days) * 100;
+    var completed = 0;
+    var scheduled = 0;
+    for (final habit in habits) {
+      completed += _completedDays(habit, startDaysAgo, days);
+      scheduled += _scheduledDays(habit, startDaysAgo, days);
+    }
+    if (scheduled == 0) return 0;
+    return completed / scheduled * 100;
   }
 
+  /// Jumlah hari terjadwal yang selesai.
   int _completedDays(HabitModel habit, int startDaysAgo, int days) {
     var count = 0;
     for (var i = startDaysAgo; i < startDaysAgo + days; i++) {
-      if (habit.isCompletedOn(_daysAgo(i))) count++;
+      final day = _daysAgo(i);
+      if (habit.isScheduledOn(day) && habit.isCompletedOn(day)) count++;
+    }
+    return count;
+  }
+
+  /// Jumlah hari yang dijadwalkan untuk [habit] dalam rentang tersebut.
+  int _scheduledDays(HabitModel habit, int startDaysAgo, int days) {
+    var count = 0;
+    for (var i = startDaysAgo; i < startDaysAgo + days; i++) {
+      if (habit.isScheduledOn(_daysAgo(i))) count++;
     }
     return count;
   }

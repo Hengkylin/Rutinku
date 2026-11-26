@@ -33,15 +33,31 @@ class ReminderScreen extends ConsumerWidget {
     return h * 60 + m;
   }
 
+  /// Hari terjadwal berikutnya setelah [now]: "besok" atau nama hari
+  /// singkat (mis. "Rab") untuk rutinitas dengan jadwal hari tertentu.
+  static String nextDayLabel(HabitModel habit, DateTime now) {
+    for (var k = 1; k <= 7; k++) {
+      final day = DateTime(now.year, now.month, now.day + k);
+      if (habit.isScheduledOn(day)) {
+        return k == 1 ? 'besok' : HabitModel.dayShortNames[day.weekday - 1];
+      }
+    }
+    return 'besok';
+  }
+
   /// Status pengingat sebuah rutinitas pada waktu [now].
   static String statusOf(HabitModel habit, DateTime now) {
     final time = habit.reminderTime!.trim();
+    final next = nextDayLabel(habit, now);
+    if (!habit.isScheduledOn(now) && !habit.isCompletedOn(now)) {
+      return 'Libur hari ini · berikutnya $next $time';
+    }
     if (habit.isCompletedOn(now)) {
-      return 'Selesai hari ini · berbunyi lagi besok $time';
+      return 'Selesai hari ini · berbunyi lagi $next $time';
     }
     final minutes = minutesOf(time)!;
     if (now.hour * 60 + now.minute >= minutes) {
-      return 'Sudah lewat hari ini · berikutnya besok $time';
+      return 'Sudah lewat hari ini · berikutnya $next $time';
     }
     return 'Hari ini pukul $time';
   }

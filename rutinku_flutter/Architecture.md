@@ -146,6 +146,7 @@ rutinku_flutter/
 │       ├── reflection_bottom_sheet.dart  # Bottom sheet refleksi mood & mode istirahat
 │       ├── habit_card.dart               # Kartu item kebiasaan harian (check-in / progres [+] untuk target > 1)
 │       ├── habit_target_fields.dart      # Input Target harian & Satuan (dipakai form tambah & edit)
+│       ├── schedule_days_field.dart      # Pilihan jadwal hari Sen–Min + preset (dipakai form tambah & edit)
 │       ├── app_text_field.dart           # Komponen input teks kustom
 │       ├── app_snackbar.dart             # Helper SnackBar seragam (error merah / sukses hijau)
 │       ├── auth_header.dart              # Header bersama layar autentikasi (ikon, judul, deskripsi)
@@ -156,7 +157,7 @@ rutinku_flutter/
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 ├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (222 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (244 Unit & Widget Test)
 │   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
 │   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
@@ -175,6 +176,7 @@ rutinku_flutter/
 │   ├── network_error_test.dart           # Izin INTERNET di manifest release + pesan error jaringan AuthService
 │   ├── reminder_screen_test.dart         # Widget test halaman Pengingat (urutan, status, form edit, izin, lonceng Dashboard)
 │   ├── reminder_skip_completed_test.dart # Unit test pengingat dilewati hari ini setelah rutinitas selesai (issue #7)
+│   ├── schedule_days_test.dart           # Jadwal per hari: model, streak, progres, analitik, alarm mingguan, form, kartu, Dashboard
 │   ├── today_notifier_test.dart          # Unit & widget test todayProvider (pergantian hari 00:00 & resume, streak putus) (issue #4)
 │   ├── validators_test.dart              # Unit test aturan input terpusat (nama, telepon, target, email, password)
 │   ├── profile_form_test.dart            # Widget test ProfileForm (validasi, loading, sukses, error) dengan FakeProfileRepository

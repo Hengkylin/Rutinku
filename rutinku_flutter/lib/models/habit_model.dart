@@ -97,6 +97,22 @@ class HabitModel {
   /// Satuan target, mis. "gelas", "menit", "halaman".
   final String? unit;
 
+  /// Hari yang dijadwalkan, memakai `DateTime.weekday` (1 = Senin ...
+  /// 7 = Minggu), terurut tanpa duplikat. List KOSONG = setiap hari (default,
+  /// juga untuk data/backup lama yang belum punya field ini).
+  final List<int> scheduledDays;
+
+  /// Nama hari singkat sesuai `DateTime.weekday` (indeks 0 = Senin).
+  static const List<String> dayShortNames = [
+    'Sen',
+    'Sel',
+    'Rab',
+    'Kam',
+    'Jum',
+    'Sab',
+    'Min',
+  ];
+
   HabitModel({
     required this.id,
     required this.title,
@@ -106,7 +122,52 @@ class HabitModel {
     this.reminderTime,
     this.targetValue = 1,
     this.unit,
-  });
+    List<int>? scheduledDays,
+  }) : scheduledDays = normalizeScheduledDays(scheduledDays);
+
+  /// Merapikan pilihan hari: hanya 1..7, tanpa duplikat, terurut. Semua
+  /// 7 hari (atau tidak ada pilihan) disimpan sebagai list kosong = harian.
+  static List<int> normalizeScheduledDays(Iterable<int>? days) {
+    final set = (days ?? const <int>[]).where((d) => d >= 1 && d <= 7).toSet();
+    if (set.length == 7) return const [];
+    return List.unmodifiable(set.toList()..sort());
+  }
+
+  /// `true` jika rutinitas dijadwalkan setiap hari.
+  bool get isDaily => scheduledDays.isEmpty;
+
+  /// Apakah rutinitas dijadwalkan pada tanggal [date].
+  bool isScheduledOn(DateTime date) =>
+      isDaily || scheduledDays.contains(date.weekday);
+
+  /// Label jadwal ringkas untuk UI: "Setiap hari", "Hari kerja",
+  /// "Akhir pekan", rentang untuk 3+ hari berurutan ("Sen–Sab",
+  /// "Sen–Rab, Jum"), selain itu daftar hari ("Sen, Rab, Jum").
+  String get scheduleLabel => scheduleLabelFor(scheduledDays);
+
+  static String scheduleLabelFor(List<int> days) {
+    final normalized = normalizeScheduledDays(days);
+    if (normalized.isEmpty) return 'Setiap hari';
+    final key = normalized.join(',');
+    if (key == '1,2,3,4,5') return 'Hari kerja';
+    if (key == '6,7') return 'Akhir pekan';
+
+    final parts = <String>[];
+    var start = 0;
+    for (var i = 1; i <= normalized.length; i++) {
+      final runEnds =
+          i == normalized.length || normalized[i] != normalized[i - 1] + 1;
+      if (!runEnds) continue;
+      final run = normalized.sublist(start, i);
+      if (run.length >= 3) {
+        parts.add('${dayShortNames[run.first - 1]}–${dayShortNames[run.last - 1]}');
+      } else {
+        parts.addAll(run.map((d) => dayShortNames[d - 1]));
+      }
+      start = i;
+    }
+    return parts.join(', ');
+  }
 
   static String _dateKey(DateTime date) =>
       DateFormat('yyyy-MM-dd').format(date);
@@ -201,11 +262,14 @@ class HabitModel {
     if (!isCompletedOn(checkDate)) {
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
-    // Hitung mundur terus: jika selesai -> streak++, jika libur (rest) -> jembatani tanpa memutus streak
-    while (isCompletedOn(checkDate) || isRestOn(checkDate)) {
-      if (isCompletedOn(checkDate)) {
-        streak++;
-      }
+    // Hitung mundur terus: selesai -> streak++; libur (rest) atau hari yang
+    // tidak dijadwalkan -> jembatani tanpa memutus streak. Jadwal tidak
+    // pernah kosong (kosong = harian), jadi loop pasti berhenti di hari
+    // terjadwal yang tidak selesai; batas 3660 hanya pengaman.
+    for (var guard = 0; guard < 3660; guard++) {
+      final done = isCompletedOn(checkDate);
+      if (!done && !isRestOn(checkDate) && isScheduledOn(checkDate)) break;
+      if (done) streak++;
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
     return streak;
@@ -216,15 +280,19 @@ class HabitModel {
   /// Persentase hari selesai dalam 7 hari terakhir dihitung mundur dari
   /// [date] (bukan selalu `DateTime.now()`), agar UI bisa memakai tanggal
   /// dari `todayProvider`.
+  /// Hanya hari yang dijadwalkan yang dihitung (mis. jadwal Sen/Rab/Jum ->
+  /// pembagi 3, bukan 7).
   double weeklyProgressOn(DateTime date) {
+    int scheduled = 0;
     int completedDays = 0;
-    final today = date;
     for (int i = 0; i < 7; i++) {
-      if (isCompletedOn(today.subtract(Duration(days: i)))) {
-        completedDays++;
-      }
+      final day = date.subtract(Duration(days: i));
+      if (!isScheduledOn(day)) continue;
+      scheduled++;
+      if (isCompletedOn(day)) completedDays++;
     }
-    return completedDays / 7.0; // Mengembalikan nilai 0.0 hingga 1.0
+    if (scheduled == 0) return 0;
+    return completedDays / scheduled; // 0.0 hingga 1.0
   }
 
   HabitModel copyWith({
@@ -238,6 +306,7 @@ class HabitModel {
     int? targetValue,
     String? unit,
     bool clearUnit = false,
+    List<int>? scheduledDays,
   }) {
     return HabitModel(
       id: id ?? this.id,
@@ -250,6 +319,7 @@ class HabitModel {
       reminderTime: reminderTime ?? this.reminderTime,
       targetValue: targetValue ?? this.targetValue,
       unit: clearUnit ? null : (unit ?? this.unit),
+      scheduledDays: scheduledDays ?? this.scheduledDays,
     );
   }
 
@@ -263,6 +333,7 @@ class HabitModel {
       'reminderTime': reminderTime,
       'targetValue': targetValue,
       'unit': unit,
+      'scheduledDays': scheduledDays,
     };
   }
 
@@ -284,6 +355,10 @@ class HabitModel {
       // Fallback untuk data JSON lama yang belum memiliki field ini.
       targetValue: (map['targetValue'] as num?)?.toInt() ?? 1,
       unit: map['unit'] as String?,
+      // Data/backup lama tanpa field ini -> harian.
+      scheduledDays: (map['scheduledDays'] as List<dynamic>?)
+          ?.map((e) => (e as num).toInt())
+          .toList(),
     );
   }
 

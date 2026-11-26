@@ -5,6 +5,7 @@ import '../notifiers/habit_notifier.dart';
 import '../utils/validators.dart';
 import 'habit_target_fields.dart';
 import 'reminder_time_field.dart';
+import 'schedule_days_field.dart';
 
 class AddHabitBottomSheet extends ConsumerStatefulWidget {
   final String? initialTitle;
@@ -29,6 +30,7 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
   final _targetController = TextEditingController(text: '1');
   final _unitController = TextEditingController();
   String? _selectedParentHabitId;
+  List<int> _scheduledDays = List.of(ScheduleDaysField.allDays);
   bool _isSubmitting = false;
 
   @override
@@ -69,6 +71,7 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
             targetValue: Validators.parseTargetValue(_targetController.text) ??
                 Validators.minTargetValue,
             unit: Validators.normalizeOptional(_unitController.text),
+            scheduledDays: _scheduledDays,
           );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -248,6 +251,23 @@ class _AddHabitBottomSheetState extends ConsumerState<AddHabitBottomSheet> {
                           _selectedParentHabitId = value;
                         });
                       },
+              ),
+              const SizedBox(height: 18),
+
+              // Jadwal hari
+              const Text(
+                'Jadwal hari',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ScheduleDaysField(
+                initialDays: _scheduledDays,
+                enabled: !_isSubmitting,
+                onChanged: (days) => _scheduledDays = days,
               ),
               const SizedBox(height: 18),
 

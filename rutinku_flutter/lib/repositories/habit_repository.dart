@@ -48,8 +48,24 @@ class HabitRepository {
     return id.hashCode & 0x7FFFFFFF;
   }
 
-  /// Menjadwalkan pengingat harian jika reminderTime tersedia (format "HH:mm").
-  /// Jika rutinitas hari ini sudah selesai, pengingat baru dimulai besok
+  /// ID notifikasi mingguan untuk [weekday] (1..7) dari ID dasar sebuah
+  /// rutinitas. Tetap 32-bit positif dan berbeda per hari.
+  static int weeklyNotificationId(int baseId, int weekday) =>
+      (baseId % 200000000) * 10 + weekday;
+
+  /// Membatalkan semua pengingat sebuah rutinitas (harian + 7 mingguan).
+  Future<void> _cancelAllReminders(String habitId) async {
+    final base = _notificationIdFromHabitId(habitId);
+    await _notificationService.cancelReminder(base);
+    for (var day = 1; day <= 7; day++) {
+      await _notificationService.cancelReminder(weeklyNotificationId(base, day));
+    }
+  }
+
+  /// Menjadwalkan pengingat jika reminderTime tersedia (format "HH:mm").
+  /// Rutinitas harian -> satu alarm harian; rutinitas dengan hari tertentu
+  /// -> satu alarm mingguan per hari terjadwal (hari lain dibatalkan).
+  /// Jika rutinitas hari ini sudah selesai, pengingat hari ini dilewati
   /// sehingga tidak muncul lagi untuk hari yang sudah dicentang (issue #7).
   Future<void> _scheduleReminderIfPresent(HabitModel habit) async {
     final reminderTime = habit.reminderTime;
@@ -59,14 +75,45 @@ class HabitRepository {
         final hour = int.tryParse(parts[0].trim());
         final minute = int.tryParse(parts[1].trim());
         if (hour != null && minute != null) {
-          await _notificationService.scheduleDailyReminder(
-            id: _notificationIdFromHabitId(habit.id),
-            title: 'Waktunya RutinKu: ${habit.title}',
-            body: 'Yuk, sempatkan waktu untuk menyelesaikan rutinitas "${habit.title}"!',
-            hour: hour,
-            minute: minute,
-            skipToday: habit.isCompletedOn(_clock()),
-          );
+          final base = _notificationIdFromHabitId(habit.id);
+          final title = 'Waktunya RutinKu: ${habit.title}';
+          final body =
+              'Yuk, sempatkan waktu untuk menyelesaikan rutinitas "${habit.title}"!';
+          final skipToday = habit.isCompletedOn(_clock());
+
+          if (habit.isDaily) {
+            for (var day = 1; day <= 7; day++) {
+              await _notificationService
+                  .cancelReminder(weeklyNotificationId(base, day));
+            }
+            await _notificationService.scheduleDailyReminder(
+              id: base,
+              title: title,
+              body: body,
+              hour: hour,
+              minute: minute,
+              skipToday: skipToday,
+            );
+            return;
+          }
+
+          await _notificationService.cancelReminder(base);
+          for (var day = 1; day <= 7; day++) {
+            final id = weeklyNotificationId(base, day);
+            if (habit.scheduledDays.contains(day)) {
+              await _notificationService.scheduleWeeklyReminder(
+                id: id,
+                title: title,
+                body: body,
+                weekday: day,
+                hour: hour,
+                minute: minute,
+                skipToday: skipToday,
+              );
+            } else {
+              await _notificationService.cancelReminder(id);
+            }
+          }
         }
       }
     }
@@ -121,6 +168,7 @@ class HabitRepository {
     String? parentHabitId,
     int targetValue = 1,
     String? unit,
+    List<int>? scheduledDays,
   }) {
     return _locked(() async {
       final habits = await fetchHabits();
@@ -132,6 +180,7 @@ class HabitRepository {
         parentHabitId: parentHabitId,
         targetValue: targetValue,
         unit: unit,
+        scheduledDays: scheduledDays,
       );
       habits.add(newHabit);
       await _saveHabitsToStorage(habits);
@@ -148,6 +197,7 @@ class HabitRepository {
     String? parentHabitId,
     int targetValue = 1,
     String? unit,
+    List<int>? scheduledDays,
   }) {
     return _locked(() async {
       final habits = await fetchHabits();
@@ -162,6 +212,7 @@ class HabitRepository {
           targetValue: targetValue,
           unit: unit,
           clearUnit: unit == null,
+          scheduledDays: scheduledDays,
         );
         habits[index] = updatedHabit;
         await _saveHabitsToStorage(habits);
@@ -169,7 +220,7 @@ class HabitRepository {
         if (reminderTime.isNotEmpty) {
           await _scheduleReminderIfPresent(updatedHabit);
         } else {
-          await _notificationService.cancelReminder(_notificationIdFromHabitId(id));
+          await _cancelAllReminders(id);
         }
       }
     });
@@ -290,7 +341,7 @@ class HabitRepository {
       final habits = await fetchHabits();
       habits.removeWhere((h) => h.id == id);
       await _saveHabitsToStorage(habits);
-      await _notificationService.cancelReminder(_notificationIdFromHabitId(id));
+      await _cancelAllReminders(id);
     });
   }
 

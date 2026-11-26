@@ -64,6 +64,8 @@ class HabitCard extends ConsumerWidget {
     final isSkipped = status == 'skipped';
     final isRest = status == 'rest';
     final todayMood = todayRecord?.mood;
+    // Rutinitas berjadwal (mis. Sen/Rab/Jum) yang tidak dijadwalkan hari ini.
+    final isOffToday = !habit.isScheduledOn(today) && !isCompleted;
 
     // Tampilkan jam pengingat yang benar-benar dijadwalkan (issue #9).
     // Tanpa pengingat, jangan tampilkan jam palsu agar pengguna tidak
@@ -77,7 +79,7 @@ class HabitCard extends ConsumerWidget {
     if (isRest) {
       cardBgColor = const Color(0xFFF8FAFC);
       cardBorderColor = const Color(0xFFCBD5E1);
-    } else if (isSkipped) {
+    } else if (isSkipped || isOffToday) {
       cardBgColor = const Color(0xFFF8FAFC);
       cardBorderColor = const Color(0xFFE2E8F0);
     }
@@ -271,6 +273,46 @@ class HabitCard extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      if (!habit.isDaily)
+                        Container(
+                          key: Key('habit_schedule_${habit.id}'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFDBEAFE),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.event_repeat,
+                                size: 12,
+                                color: Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  isOffToday
+                                      ? 'Libur hari ini · ${habit.scheduleLabel}'
+                                      : habit.scheduleLabel,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       if (streakCount > 0) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(

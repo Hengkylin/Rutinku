@@ -71,6 +71,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     String? parentHabitId,
     int targetValue = 1,
     String? unit,
+    List<int>? scheduledDays,
   }) async {
     _ensureValidTitle(title);
     final previousState = state;
@@ -83,6 +84,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         parentHabitId: parentHabitId,
         targetValue: targetValue,
         unit: unit,
+        scheduledDays: scheduledDays,
       );
       state = await AsyncValue.guard(() => _fetchHabits());
     } catch (e, s) {
@@ -99,6 +101,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
     String? parentHabitId,
     int targetValue = 1,
     String? unit,
+    List<int>? scheduledDays,
   }) async {
     _ensureValidTitle(newTitle);
     final previousState = state;
@@ -112,6 +115,7 @@ class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
         parentHabitId: parentHabitId,
         targetValue: targetValue,
         unit: unit,
+        scheduledDays: scheduledDays,
       );
       state = await AsyncValue.guard(() => _fetchHabits());
     } catch (e, s) {

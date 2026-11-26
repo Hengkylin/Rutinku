@@ -53,8 +53,16 @@ class DashboardScreen extends ConsumerWidget {
 
     // 1. Hitung metrik dari data habits (jika data tersedia)
     final habits = habitState.value ?? [];
-    final totalTargets = habits.length;
-    final completedTargets = habits
+    // Hanya rutinitas yang dijadwalkan hari ini yang dihitung sebagai target;
+    // rutinitas yang libur hari ini tetap tampil, di bawah daftar.
+    final scheduledToday =
+        habits.where((h) => h.isScheduledOn(today)).toList();
+    final orderedHabits = [
+      ...scheduledToday,
+      ...habits.where((h) => !h.isScheduledOn(today)),
+    ];
+    final totalTargets = scheduledToday.length;
+    final completedTargets = scheduledToday
         .where((h) => h.isCompletedOn(today))
         .length;
     final progressValue = totalTargets > 0
@@ -376,9 +384,9 @@ class DashboardScreen extends ConsumerWidget {
                     }
                     return ListView.builder(
                       padding: EdgeInsets.zero,
-                      itemCount: habits.length,
+                      itemCount: orderedHabits.length,
                       itemBuilder: (context, index) {
-                        final habit = habits[index];
+                        final habit = orderedHabits[index];
                         String? parentName;
                         if (habit.parentHabitId != null) {
                           final parentHabit = habits

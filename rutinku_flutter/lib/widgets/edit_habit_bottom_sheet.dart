@@ -6,6 +6,7 @@ import '../notifiers/habit_notifier.dart';
 import '../utils/validators.dart';
 import 'habit_target_fields.dart';
 import 'reminder_time_field.dart';
+import 'schedule_days_field.dart';
 
 class EditHabitBottomSheet extends ConsumerStatefulWidget {
   final HabitModel habit;
@@ -28,6 +29,7 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
   late final TextEditingController _targetController;
   late final TextEditingController _unitController;
   String? _selectedParentHabitId;
+  late List<int> _scheduledDays;
   bool _isSubmitting = false;
 
   @override
@@ -43,6 +45,7 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
         TextEditingController(text: widget.habit.targetValue.toString());
     _unitController = TextEditingController(text: widget.habit.unit ?? '');
     _selectedParentHabitId = widget.habit.parentHabitId;
+    _scheduledDays = ScheduleDaysField.initialFor(widget.habit);
   }
 
   @override
@@ -70,6 +73,7 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
             targetValue: Validators.parseTargetValue(_targetController.text) ??
                 Validators.minTargetValue,
             unit: Validators.normalizeOptional(_unitController.text),
+            scheduledDays: _scheduledDays,
           );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -315,6 +319,23 @@ class _EditHabitBottomSheetState extends ConsumerState<EditHabitBottomSheet> {
                           _selectedParentHabitId = value;
                         });
                       },
+              ),
+              const SizedBox(height: 18),
+
+              // Jadwal hari
+              const Text(
+                'Jadwal hari',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ScheduleDaysField(
+                initialDays: _scheduledDays,
+                enabled: !_isSubmitting,
+                onChanged: (days) => _scheduledDays = days,
               ),
               const SizedBox(height: 18),
 

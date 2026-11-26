@@ -190,6 +190,78 @@ class NotificationService {
     }
   }
 
+  /// Menjadwalkan pengingat MINGGUAN pada [weekday] (1 = Senin ... 7 = Minggu)
+  /// pukul [hour]:[minute], untuk rutinitas yang hanya dijadwalkan pada
+  /// hari tertentu. Jika [weekday] adalah hari ini dan jamnya sudah lewat
+  /// atau [skipToday] (sudah selesai), kemunculan pertama minggu depan.
+  Future<void> scheduleWeeklyReminder({
+    required int id,
+    required String title,
+    required String body,
+    required int weekday,
+    required int hour,
+    required int minute,
+    bool skipToday = false,
+  }) async {
+    try {
+      if (!_isInitialized) {
+        await init();
+      }
+
+      final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+      final daysAhead = (weekday - now.weekday + 7) % 7;
+      tz.TZDateTime scheduledDate = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day + daysAhead,
+        hour,
+        minute,
+      );
+      if (daysAhead == 0 && (scheduledDate.isBefore(now) || skipToday)) {
+        scheduledDate = tz.TZDateTime(
+          tz.local,
+          now.year,
+          now.month,
+          now.day + 7,
+          hour,
+          minute,
+        );
+      }
+
+      const NotificationDetails notificationDetails = NotificationDetails(
+        android: AndroidNotificationDetails(
+          'habit_daily_reminders',
+          'Pengingat RutinKu',
+          channelDescription:
+              'Notifikasi pengingat harian untuk rutinitas RutinKu',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      );
+
+      await _notificationsPlugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+      _log.info('Pengingat #$id dijadwalkan mingguan (hari $weekday) pukul '
+          '$hour:$minute (berikutnya: $scheduledDate)');
+    } catch (e, s) {
+      _log.severe(
+          'Gagal menjadwalkan pengingat mingguan #$id (hari $weekday)', e, s);
+    }
+  }
+
   /// Membatalkan jadwal notifikasi berdasarkan ID
   Future<void> cancelReminder(int id) async {
     try {
