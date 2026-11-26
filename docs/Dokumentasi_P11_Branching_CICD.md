@@ -34,7 +34,7 @@ Issue dicatat di GitHub Issues dan ditutup otomatis lewat kata kunci `closes #N`
 | --- | --- | --- | --- |
 | `main` / `v1.0` | Rilis yang sudah OK (sama dengan tag `v1.0.0-rc.2`) | 1.0.0-rc.2+4 | ✅ Release OK |
 | `v1.0_dev` | Penambahan fitur & perbaikan bug yang sedang diuji; setiap push hijau otomatis Live di `dev-latest` | 1.1.0-dev.1+5 | 🧪 Under testing |
-| `v1.1` / tag `v1.1.0` | Rilis berikutnya hasil `v1.0_dev` | 1.1.0+6 | ✅ Rilis resmi (Latest) |
+| `v1.1` / tag `v1.1.0`, `v1.1.1` | Rilis berikutnya hasil `v1.0_dev` | 1.1.0+6 → 1.1.1+7 | ✅ v1.1.0, lalu hotfix v1.1.1 (Latest) |
 
 ## 4. Unit Test: 206 Tes
 Di branch `v1.0_dev` ditambahkan **39 unit test** baru di `rutinku_flutter/test/habit_model_test.dart`, sehingga total tes naik dari 167 menjadi **206**. Tes baru menguji logika inti dengan tanggal acuan tetap, supaya hasilnya tidak bergantung pada jam perangkat.
@@ -128,5 +128,39 @@ Bug diperbaiki dengan `git revert` (commit `ec797b5`, run #13): 206/206 tes kemb
 ![Repo 4 branch](gambar_dokumentasi-p11/09-repo-4-branch.png)
 *Gambar 9. Halaman repo: 4 branch (main, v1.0, v1.0_dev, v1.1), 4 tag, rilis terbaru v1.1.0.*
 
-## 9. Kesimpulan
-Semua target P11 tercapai: issue tercatat dan ditutup lewat commit, branch `v1.0` / `v1.0_dev` / `v1.1` terpisah, 206 unit test berjalan otomatis, dan pipeline CI/CD hanya men-deploy build yang lolos semua tes. Demo bug membuktikan bahwa unit test yang gagal memblokir build dan deploy, sehingga kesalahan ditemukan oleh developer, bukan oleh tester atau pengguna.
+## 9. Hasil 4: Pengujian APK Live dan Hotfix v1.1.1
+Pengujian APK di HP menemukan 3 masalah yang tidak terlihat saat development. Ketiganya diperbaiki di `v1.0_dev`, lolos **222/222** tes, terbukti berhasil di APK `dev-latest`, lalu dirilis sebagai **v1.1.1**. Bug terberat hanya muncul di build release: APK v1.1.0 sama sekali tidak bisa login.
+
+| Temuan di HP | Penyebab | Perbaikan | Tes baru | Commit |
+| --- | --- | --- | --- | --- |
+| Garis "OVERFLOWED BY 8.8 PIXELS" di kartu rutinitas | Baris "Tanpa pengingat" dan streak memakai `Row` kaku di kolom sempit dengan huruf HP besar | Teks dibungkus `Flexible` sehingga bisa turun baris | 3 | `0c64f00` |
+| Ikon lonceng tidak bisa diketuk | Ikon hanya hiasan tanpa aksi | Halaman Pengingat: jadwal per jam, status hari ini, atur jam, cek izin | 7 | `fdadc9c` |
+| Login APK release gagal: "Failed host lookup" | Izin `INTERNET` hanya ada di manifest debug/profile, tidak di manifest main yang dipakai release | Izin ditambahkan, error jaringan diganti pesan ramah, plus tes penjaga yang membaca manifest | 6 | `461f651` |
+
+| Run | Branch / tag | Commit | Tes | Hasil |
+| --- | --- | --- | --- | --- |
+| #21 | `v1.0_dev` | `461f651` | 222/222 ✅ | dev-latest diperbarui, login di HP berhasil |
+| #20 | `v1.0_dev` | `fdadc9c` | 216/216 ✅ | dev-latest diperbarui |
+
+Setelah teruji di HP, `v1.0_dev` digabung ke `v1.1` (merge `41db4ce`), versi dinaikkan menjadi 1.1.1+7, dan tag `v1.1.1` dibuat. **Pelajaran:** unit test tidak menangkap bug yang hanya ada di konfigurasi build release. Karena itu kini ada tes penjaga manifest, sehingga APK tanpa izin INTERNET tidak akan lolos CI ke Live lagi.
+
+![Overflow sebelum perbaikan](gambar_dokumentasi-p11/10-overflow-sebelum-fix.jpg)
+*Gambar 10. Sebelum perbaikan: baris "Tanpa pengingat" overflow 8,8 piksel di kartu rutinitas.*
+
+![Lonceng belum berfungsi](gambar_dokumentasi-p11/11-lonceng-belum-berfungsi.jpg)
+*Gambar 11. Ikon lonceng (dilingkari) belum memiliki aksi.*
+
+![Login gagal di APK release](gambar_dokumentasi-p11/12-login-gagal-apk-release.jpg)
+*Gambar 12. APK release gagal login karena izin INTERNET tidak ada di manifest main.*
+
+![Run #20 216 tes](gambar_dokumentasi-p11/13-run20-216-tes.png)
+*Gambar 13. Run #20 (halaman Pengingat): 216/216 lulus dan Deploy Live hijau.*
+
+![Run #21 222 tes](gambar_dokumentasi-p11/14-run21-222-tes.png)
+*Gambar 14. Run #21 (izin INTERNET): 222/222 lulus dan Deploy Live hijau.*
+
+![Login berhasil tanpa overflow](gambar_dokumentasi-p11/15-login-berhasil-tanpa-overflow.jpg)
+*Gambar 15. APK dev-latest di HP: login berhasil, "Tanpa pengingat" turun baris dengan rapi, dan lonceng aktif.*
+
+## 10. Kesimpulan
+Semua target P11 tercapai, dan pengujian APK Live menghasilkan hotfix v1.1.1 dengan 222 tes: issue tercatat dan ditutup lewat commit, branch `v1.0` / `v1.0_dev` / `v1.1` terpisah, 206 unit test berjalan otomatis, dan pipeline CI/CD hanya men-deploy build yang lolos semua tes. Demo bug membuktikan bahwa unit test yang gagal memblokir build dan deploy, sehingga kesalahan ditemukan oleh developer, bukan oleh tester atau pengguna.
