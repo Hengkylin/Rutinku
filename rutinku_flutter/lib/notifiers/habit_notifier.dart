@@ -18,7 +18,9 @@ final habitNotifierProvider =
 class HabitNotifier extends AsyncNotifier<List<HabitModel>> {
   static final _log = AppLogger.get('habit');
 
-  late final HabitRepository _repository;
+  // Bukan `final`: Riverpod memakai ulang instance notifier saat provider
+  // di-invalidate (restore), sehingga build() mengisi field ini lagi.
+  late HabitRepository _repository;
 
   /// Membaca data dari repository; error asli dicatat ke log sebelum
   /// diteruskan (UI menampilkan state error).

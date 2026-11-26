@@ -144,7 +144,7 @@ Konfigurasi berikut sudah diterapkan di project (tidak perlu diubah manual):
 ## 6. Pengujian Otomatis & Analisis Kode
 
 ```bash
-# Seluruh unit test & widget test (265 test)
+# Seluruh unit test & widget test (267 test)
 flutter test
 
 # Pengujian sistem log: AppLogger (file, rotasi, error & stack trace, log Supabase, sensor data) & layar Log Aplikasi

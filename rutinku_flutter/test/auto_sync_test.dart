@@ -365,6 +365,48 @@ void main() {
     });
   });
 
+  group('Muat ulang setelah restore (invalidate)', () {
+    // Regresi: restore otomatis memanggil ref.invalidate(habitNotifierProvider)
+    // saat Dashboard sudah tampil. Riverpod memakai ulang instance notifier,
+    // sehingga field `late final` yang diisi di build() melempar
+    // LateInitializationError ("has already been initialized").
+    test('HabitNotifier asli bisa di-invalidate berulang kali', () async {
+      await setLocal([habit('a')]);
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      c.listen(habitNotifierProvider, (_, _) {});
+
+      expect((await c.read(habitNotifierProvider.future)).length, 1);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          HabitRepository.storageKey, encode([habit('x'), habit('y')]));
+      c.invalidate(habitNotifierProvider);
+      final reloaded = await c.read(habitNotifierProvider.future);
+
+      expect(reloaded.map((h) => h.id), ['x', 'y']);
+      expect(c.read(habitNotifierProvider).hasError, isFalse);
+
+      c.invalidate(habitNotifierProvider);
+      expect((await c.read(habitNotifierProvider.future)).length, 2);
+    });
+
+    test('SyncNotifier asli bisa dibangun ulang', () async {
+      final c = ProviderContainer(overrides: [
+        syncRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(c.dispose);
+      c.listen(syncNotifierProvider, (_, _) {});
+      c.read(syncNotifierProvider);
+
+      c.invalidate(syncNotifierProvider);
+      c.read(syncNotifierProvider);
+      await c.read(syncNotifierProvider.notifier).fetchData();
+
+      expect(c.read(syncNotifierProvider).hasError, isFalse);
+    });
+  });
+
   group('Kartu Sinkron otomatis di SyncScreen', () {
     Future<FixedAutoSyncNotifier> pumpCard(
         WidgetTester tester, AutoSyncState state) async {

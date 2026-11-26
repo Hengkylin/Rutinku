@@ -16,7 +16,8 @@ final syncNotifierProvider =
 class SyncNotifier extends Notifier<AsyncValue<List<HabitModel>>> {
   static final _log = AppLogger.get('sync');
 
-  late final SyncRepository _repository;
+  // Bukan `final`: build() bisa berjalan lagi pada instance yang sama.
+  late SyncRepository _repository;
 
   @override
   AsyncValue<List<HabitModel>> build() {
