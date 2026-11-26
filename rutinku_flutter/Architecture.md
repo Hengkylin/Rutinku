@@ -23,7 +23,7 @@ Dokumen ini menjelaskan rancangan arsitektur, tumpukan teknologi (*tech stack*),
      3. **Password Baru** — `UpdatePasswordScreen` memvalidasi password baru (minimal 6 karakter) dan konfirmasinya (harus sama), memanggil `AuthService.updatePassword()` → `updateUser(UserAttributes(password: ...))`, menampilkan SnackBar sukses, lalu ke Beranda (sesi recovery sudah login).
    * **Listener status auth di `App`** — `App` (`app.dart`) berlangganan `AuthService.onAuthStateChange` **hanya untuk error**. `verifyOTP` tipe recovery juga memancarkan `AuthChangeEvent.passwordRecovery`, tetapi `App` sengaja tidak bernavigasi karena event itu (layar kode yang membuka Password Baru), agar layar tidak terbuka dua kali. Error dari link email (mis. link verifikasi pendaftaran kedaluwarsa/sudah dipakai, atau dibuka di HP lain) diubah oleh `AuthService.linkErrorMessage()` menjadi SnackBar merah lewat `navigatorKey` global; error lain (mis. refresh token kedaluwarsa) diabaikan.
 2. **Manajemen Kebiasaan Lokal (CRUD & Optimistic UI):** Seluruh operasi pembuatan, pembaruan, *check-in* harian, pencatatan refleksi mood/istirahat, dan penghapusan kebiasaan dikelola secara reaktif oleh `HabitNotifier` dan disimpan secara persisten di penyimpanan lokal menggunakan `SharedPreferences` (key: `rutinku_habits`).
-3. **Sinkronisasi Cloud (Supabase JSONB):** Melalui `SyncScreen` → `SyncNotifier` → `SyncRepository`, pengguna dapat menarik pratinjau data dari *cloud* (**Fetch**), mencadangkan seluruh JSON kebiasaan lokal ke tabel PostgreSQL `user_data` menggunakan operasi `upsert` (**Backup**), atau memulihkan data dari *cloud* ke `SharedPreferences` lokal (**Restore**).
+3. **Sinkronisasi Cloud (Supabase JSONB):** Melalui `SyncScreen` → `SyncNotifier` → `SyncRepository`, pengguna dapat menarik pratinjau data dari *cloud* (**Fetch**), mencadangkan seluruh JSON kebiasaan lokal ke tabel PostgreSQL `user_data` menggunakan operasi `upsert` (**Backup**), atau memulihkan data dari *cloud* ke `SharedPreferences` lokal (**Restore**). Sejak v1.3.0, `AutoSyncNotifier` menjalankan **sinkron otomatis**: backup 5 detik setelah data berubah, restore otomatis bila data HP kosong, meminta pilihan pengguna bila data HP & cloud berbeda pada sinkron pertama, dan mencoba ulang saat offline (status tampil sebagai titik warna di ikon cloud Dashboard).
 4. **Kalkulasi Streak Dinamis:** `HabitModel` menghitung jumlah *streak* harian secara dinamis berdasarkan riwayat `records` (`HabitRecord`), termasuk toleransi hari berjalan (*grace period*) dan pelestarian *streak* pada hari istirahat (`status: 'rest'`). Satu hari dianggap selesai lewat `isCompletedOn()`: target 1 → status `'completed'`; target > 1 → `currentValue >= targetValue`.
    * **Progressive Habit Tracking:** logika perubahan record ditulis sekali di `HabitModel` (`incrementProgress` dan `toggleCheckIn`, keduanya memakai `copyWith` sehingga mood/catatan/foto/progres tidak hilang), lalu dipakai bersama oleh `HabitNotifier` (*optimistic UI*) dan `HabitRepository` (persisten). Tombol **[+]** di `HabitCard` memanggil `incrementHabitProgress`; record baru berstatus `'pending'` dan otomatis menjadi `'completed'` saat target tercapai. `toggleCheckIn` membalik status `completed` ↔ `pending` dan menolak menandai selesai habit progresif yang belum mencapai target.
 5. **Notifikasi Lokal & Visual Habit Journal:**
@@ -112,7 +112,8 @@ rutinku_flutter/
 │   ├── notifiers/                        # Logika bisnis & State Management (Riverpod)
 │   │   ├── habit_notifier.dart           # AsyncNotifier kebiasaan (Optimistic UI, check-in, foto momen)
 │   │   ├── today_notifier.dart           # todayProvider: tanggal aktif, berganti otomatis saat 00:00 & resume
-│   │   └── sync_notifier.dart            # Notifier sinkronisasi cloud (Loading, Empty, Data, Error, Retry)
+│   │   ├── sync_notifier.dart            # Notifier sinkronisasi cloud (Loading, Empty, Data, Error, Retry)
+│   │   └── auto_sync_notifier.dart       # Sinkron otomatis (debounce, restore awal, conflict, retry)
 │   │
 │   ├── services/                         # Layanan eksternal, sistem perangkat, & logika statistik
 │   │   ├── app_logger.dart               # AppLogger: log ke logcat + file berotasi, penangkap error tak tertangkap
@@ -157,7 +158,7 @@ rutinku_flutter/
 ├── android/app/src/main/AndroidManifest.xml  # intent-filter deep link io.supabase.rutinku://login-callback/ (link verifikasi)
 ├── android/app/src/main/res/raw/keep.xml     # Jaga ikon notifikasi dari R8 di build release
 │
-├── test/                                 # Pengujian otomatis (244 Unit & Widget Test)
+├── test/                                 # Pengujian otomatis (265 Unit & Widget Test)
 │   ├── app_logger_test.dart              # Unit test AppLogger (format, file, rotasi, stack trace, log Supabase, sensor level & email)
 │   ├── log_viewer_screen_test.dart       # Widget test Log Aplikasi (tampil, salin, muat ulang, hapus dengan konfirmasi)
 │   ├── analytics_service_test.dart       # Unit test AnalyticsService (data mock, tanggal acuan tetap, hitungan matematis)
@@ -165,6 +166,7 @@ rutinku_flutter/
 │   ├── auth_service_test.dart            # Unit test AuthService (resetPassword, verifyRecoveryCode, updatePassword, pesan error) dengan mock GoTrueClient
 │   ├── auth_screens_test.dart            # Widget test Lupa Password→Masukkan Kode→Password Baru, dialog verifikasi, & listener error auth
 │   ├── api_sync_test.dart                # Unit test Cloud Sync & validasi model (MockSyncRepository / mocktail)
+│   ├── auto_sync_test.dart               # Unit & widget test sinkron otomatis (AutoSyncNotifier, kartu SyncScreen)
 │   ├── sync_screen_test.dart             # Widget test state UI SyncScreen
 │   ├── checkin_test.dart                 # Unit test CRUD, SharedPreferences, streak, mood, & habit stacking
 │   ├── edge_cases_test.dart              # Widget/unit test validasi input, empty state, & izin notifikasi aman

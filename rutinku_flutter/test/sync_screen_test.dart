@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:rutinku_flutter/models/habit_model.dart';
 import 'package:rutinku_flutter/notifiers/sync_notifier.dart';
 import 'package:rutinku_flutter/screens/sync_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_sync_test.dart';
 
@@ -12,6 +13,7 @@ void main() {
   late MockSyncRepository mockRepository;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockRepository = MockSyncRepository();
     when(() => mockRepository.currentUserEmail).thenReturn('user@rutinku.com');
   });

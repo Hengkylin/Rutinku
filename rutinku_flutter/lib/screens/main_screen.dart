@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../notifiers/auto_sync_notifier.dart';
 import 'analytics_screen.dart';
 import 'calendar_screen.dart';
 import 'dashboard_screen.dart';
@@ -15,6 +16,8 @@ class MainScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(bottomNavIndexProvider);
+    // Sinkron otomatis ke Supabase aktif selama pengguna login (MainScreen).
+    ref.watch(autoSyncProvider);
 
     final screens = const [
       DashboardScreen(),

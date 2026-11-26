@@ -25,6 +25,9 @@ class SyncRepository {
   /// Pengguna yang sedang login (null jika belum login).
   User? get currentUser => _supabase.auth.currentUser;
 
+  /// `true` jika ada pengguna yang login (dipakai sinkron otomatis).
+  bool get isLoggedIn => currentUser != null;
+
   /// Email pengguna aktif, ditampilkan di SyncScreen.
   String? get currentUserEmail => currentUser?.email;
 

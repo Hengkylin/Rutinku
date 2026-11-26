@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
+import '../notifiers/auto_sync_notifier.dart';
 import '../notifiers/sync_notifier.dart';
 import '../notifiers/today_notifier.dart';
 import 'login_screen.dart';
@@ -32,6 +35,9 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     try {
       final success = await ref.read(syncNotifierProvider.notifier).backupData();
       backedUp = success;
+      if (success) {
+        unawaited(ref.read(autoSyncProvider.notifier).recordManualSync());
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -105,6 +111,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     setState(() => _isRestoring = true);
     try {
       final count = await ref.read(syncNotifierProvider.notifier).restoreData();
+      unawaited(ref.read(autoSyncProvider.notifier).recordManualSync());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -242,6 +249,130 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     );
   }
 
+  static String _formatTime(DateTime t) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(t.day)}/${two(t.month)} ${two(t.hour)}:${two(t.minute)}';
+  }
+
+  /// Kartu status sinkron otomatis + sakelar on/off + "Sinkronkan sekarang".
+  Widget _buildAutoSyncCard() {
+    final sync = ref.watch(autoSyncProvider);
+    final last = sync.lastSyncedAt;
+    final (IconData icon, Color color, String text) = switch (sync.status) {
+      AutoSyncStatus.notLoggedIn => (
+          Icons.cloud_off_outlined,
+          const Color(0xFF94A3B8),
+          'Login untuk menyinkronkan data',
+        ),
+      AutoSyncStatus.off => (
+          Icons.cloud_off_outlined,
+          const Color(0xFF94A3B8),
+          'Mati · gunakan Backup / Restore manual',
+        ),
+      AutoSyncStatus.pending => (
+          Icons.schedule,
+          const Color(0xFFF59E0B),
+          'Perubahan menunggu untuk dikirim…',
+        ),
+      AutoSyncStatus.syncing => (
+          Icons.sync,
+          const Color(0xFFF59E0B),
+          'Sedang menyinkronkan…',
+        ),
+      AutoSyncStatus.synced => (
+          Icons.cloud_done_outlined,
+          const Color(0xFF22C55E),
+          last == null ? 'Aktif' : 'Aktif · terakhir ${_formatTime(last)}',
+        ),
+      AutoSyncStatus.error => (
+          Icons.cloud_off_outlined,
+          const Color(0xFFEF4444),
+          'Gagal terhubung, akan dicoba lagi otomatis',
+        ),
+      AutoSyncStatus.conflict => (
+          Icons.warning_amber_rounded,
+          const Color(0xFFEF4444),
+          'Perlu dipilih: data HP dan cloud berbeda',
+        ),
+    };
+    final canSyncNow = sync.enabled &&
+        (sync.status == AutoSyncStatus.synced ||
+            sync.status == AutoSyncStatus.pending ||
+            sync.status == AutoSyncStatus.error);
+
+    return Container(
+      key: const Key('auto_sync_card'),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sinkron otomatis',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      text,
+                      key: const Key('auto_sync_status_text'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                key: const Key('auto_sync_switch'),
+                value: sync.enabled,
+                onChanged: (value) =>
+                    ref.read(autoSyncProvider.notifier).setEnabled(value),
+              ),
+            ],
+          ),
+          if (sync.status == AutoSyncStatus.conflict)
+            const Padding(
+              padding: EdgeInsets.only(top: 6, right: 6, bottom: 6),
+              child: Text(
+                'Data di HP dan di cloud berbeda. Tekan Backup untuk memakai '
+                'data HP, atau Restore untuk memakai data cloud. Setelah itu '
+                'sinkron otomatis berjalan lagi.',
+                key: Key('auto_sync_conflict_text'),
+                style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+              ),
+            ),
+          if (canSyncNow)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                key: const Key('auto_sync_now'),
+                icon: const Icon(Icons.sync, size: 18),
+                label: const Text('Sinkronkan sekarang'),
+                onPressed: () =>
+                    ref.read(autoSyncProvider.notifier).syncNow(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final syncState = ref.watch(syncNotifierProvider);
@@ -279,6 +410,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
       body: Column(
         children: [
           _buildAccountBanner(email),
+          _buildAutoSyncCard(),
           Expanded(
             child: syncState.when(
               data: (habits) {
@@ -342,9 +474,22 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   }
 
   // --- 2. STATE ERROR ---
+  /// Isi di tengah, tetapi bisa digulir bila layar pendek (kartu sinkron
+  /// otomatis di atas memakan tempat) agar tidak overflow.
+  Widget _scrollableCenter(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(child: child),
+        ),
+      ),
+    );
+  }
+
   Widget _buildErrorState(Object error) {
-    return Center(
-      child: Padding(
+    return _scrollableCenter(
+      Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -408,8 +553,8 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
 
   // --- 3. STATE EMPTY ---
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
+    return _scrollableCenter(
+      Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

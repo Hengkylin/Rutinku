@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
+import '../notifiers/auto_sync_notifier.dart';
 import '../notifiers/habit_notifier.dart';
 import '../notifiers/today_notifier.dart';
 import '../widgets/add_habit_bottom_sheet.dart';
@@ -131,10 +132,23 @@ class DashboardScreen extends ConsumerWidget {
                                 color: Colors.white.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.cloud_sync_outlined,
-                                color: Colors.white,
-                                size: 22,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.cloud_sync_outlined,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                  // Titik status sinkron otomatis.
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: _AutoSyncDot(
+                                      status: ref.watch(autoSyncProvider).status,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -657,5 +671,39 @@ class DashboardScreen extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+/// Titik kecil di ikon awan: hijau = tersinkron, oranye = menunggu/sedang
+/// sinkron, merah = gagal atau perlu dipilih (konflik). Tidak tampil saat
+/// sinkron otomatis mati / belum login.
+class _AutoSyncDot extends StatelessWidget {
+  const _AutoSyncDot({required this.status});
+
+  final AutoSyncStatus status;
+
+  static Color? colorFor(AutoSyncStatus status) => switch (status) {
+        AutoSyncStatus.synced => const Color(0xFF22C55E),
+        AutoSyncStatus.pending || AutoSyncStatus.syncing =>
+          const Color(0xFFF59E0B),
+        AutoSyncStatus.error || AutoSyncStatus.conflict =>
+          const Color(0xFFEF4444),
+        AutoSyncStatus.off || AutoSyncStatus.notLoggedIn => null,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = colorFor(status);
+    if (color == null) return const SizedBox.shrink();
+    return Container(
+      key: Key('auto_sync_dot_${status.name}'),
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF1E293B), width: 1.5),
+      ),
+    );
   }
 }
